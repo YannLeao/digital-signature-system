@@ -12,7 +12,12 @@ public class EnvironmentValidationConfig {
 
 	static final List<String> REQUIRED_VARIABLES = List.of(
 			"APP_ENV",
-			"APP_SECRET"
+			"APP_SECRET",
+			"DB_HOST",
+			"DB_PORT",
+			"DB_NAME",
+			"DB_USERNAME",
+			"DB_PASSWORD"
 	);
 
 	@Bean
