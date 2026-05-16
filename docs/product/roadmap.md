@@ -9,7 +9,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 - [x] SETUP-01 — Inicializar projeto Spring Boot
 - [x] SETUP-02 — Inicializar projeto React + Vite + Tailwind
 - [x] SETUP-03 — Configurar PostgreSQL e Flyway
-- [ ] SETUP-04 — Configurar padrão global de erros da API
+- [x] SETUP-04 — Configurar padrão global de erros da API
 - [ ] SETUP-05 — Configurar versionamento de API `/api/v1`
 
 ## EPIC-01 — Autenticação com Login e Senha
