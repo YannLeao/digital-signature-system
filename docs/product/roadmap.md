@@ -14,7 +14,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 
 ## EPIC-01 — Autenticação com Login e Senha
 
-- [ ] AUTH-01 — Cadastro de usuário com Argon2id
+- [x] AUTH-01 — Cadastro de usuário com Argon2id
 - [ ] AUTH-02 — Login com mensagem genérica e proteção contra brute force
 - [ ] AUTH-03 — Tela de cadastro e login
 

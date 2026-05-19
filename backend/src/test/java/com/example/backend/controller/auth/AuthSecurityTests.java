@@ -1,15 +1,16 @@
-package com.example.backend.controller;
+package com.example.backend.controller.auth;
 
 import com.example.backend.service.auth.UserRegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"DB_PASSWORD=postgres",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
-class HealthControllerTests {
+class AuthSecurityTests {
 
 	private final MockMvc mockMvc;
 
@@ -34,16 +35,19 @@ class HealthControllerTests {
 	private UserRegistrationService userRegistrationService;
 
 	@Autowired
-	HealthControllerTests(MockMvc mockMvc) {
+	AuthSecurityTests(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
 	}
 
 	@Test
-	void returnsHealthUnderVersionedApiWithoutAuthentication() throws Exception {
-		mockMvc.perform(get("/api/v1/health").servletPath("/api/v1"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.status").value("UP"))
-				.andExpect(jsonPath("$.version").value("v1"))
-				.andExpect(jsonPath("$.timestamp").exists());
+	void permitsVersionedRegistrationWithoutAuthenticationOrCsrfToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/register")
+						.servletPath("/api/v1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","password":"StrongPassword123!"}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.message").value("Usuario registrado com sucesso."));
 	}
 }
