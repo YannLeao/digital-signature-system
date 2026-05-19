@@ -4,10 +4,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 @Entity
 @Table(name = "users")
 public class User {
@@ -36,4 +38,19 @@ public class User {
 
 	protected User() {
 	}
+
+	private User(UUID id, String email, String passwordHash, Instant createdAt, Instant updatedAt) {
+		this.id = id;
+		this.email = email;
+		this.passwordHash = passwordHash;
+		this.createdAt = createdAt;
+		this.updatedAt = updatedAt;
+		this.failedAttempts = 0;
+		this.lockedUntil = null;
+	}
+
+	public static User register(UUID id, String email, String passwordHash, Instant now) {
+		return new User(id, email, passwordHash, now, now);
+	}
+
 }
