@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.service.auth.UserRegistrationService;
+import com.example.backend.service.auth.UserLoginService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,6 +33,10 @@ class HealthControllerTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private UserRegistrationService userRegistrationService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private UserLoginService userLoginService;
 
 	@Autowired
 	HealthControllerTests(MockMvc mockMvc) {

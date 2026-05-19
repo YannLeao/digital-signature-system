@@ -1,12 +1,14 @@
 package com.example.backend;
 
 import com.example.backend.service.auth.UserRegistrationService;
+import com.example.backend.service.auth.UserLoginService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
-@org.springframework.test.context.TestPropertySource(properties = {
+@TestPropertySource(properties = {
 		"APP_ENV=test",
 		"APP_SECRET=0123456789abcdef0123456789abcdef",
 		"DB_HOST=localhost",
@@ -21,6 +23,10 @@ class BackendApplicationTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private UserRegistrationService userRegistrationService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private UserLoginService userLoginService;
 
 	@Test
 	void contextLoads() {
