@@ -1,5 +1,6 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,10 @@ class AuthSecurityTests {
 	@SuppressWarnings("unused")
 	private UserRegistrationService userRegistrationService;
 
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private UserLoginService userLoginService;
+
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
@@ -49,5 +54,17 @@ class AuthSecurityTests {
 								"""))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.message").value("Usuario registrado com sucesso."));
+	}
+
+	@Test
+	void permitsVersionedLoginWithoutAuthenticationOrCsrfToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/login")
+						.servletPath("/api/v1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","password":"StrongPassword123!"}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Login realizado com sucesso."));
 	}
 }

@@ -1,8 +1,13 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.RegisterUserRequest;
+import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.exception.GlobalExceptionHandler;
+import com.example.backend.exception.RateLimitExceededException;
+import com.example.backend.service.auth.LoginRateLimiter;
+import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,16 +27,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTests {
 
 	private UserRegistrationService userRegistrationService;
+	private UserLoginService userLoginService;
+	private LoginRateLimiter loginRateLimiter;
 	private MockMvc mockMvc;
 
 	@BeforeEach
 	void setUp() {
 		userRegistrationService = mock(UserRegistrationService.class);
+		userLoginService = mock(UserLoginService.class);
+		loginRateLimiter = mock(LoginRateLimiter.class);
 
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 
-		mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(userRegistrationService))
+		mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(
+						userRegistrationService,
+						userLoginService,
+						loginRateLimiter
+				))
 				.setControllerAdvice(new GlobalExceptionHandler())
 				.setValidator(validator)
 				.build();
@@ -130,5 +143,64 @@ class AuthControllerTests {
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.code").value("VAL_003"))
 				.andExpect(jsonPath("$.message").value("E-mail ja cadastrado."));
+	}
+
+	@Test
+	void logsInValidUserWithoutReturningPasswordOrHash() throws Exception {
+		String password = "StrongPassword123!";
+
+		String response = mockMvc.perform(post("/auth/login")
+						.with(request -> {
+							request.setRemoteAddr("203.0.113.10");
+							return request;
+						})
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","password":"StrongPassword123!"}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Login realizado com sucesso."))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		assertThat(response).doesNotContain(password, "password", "passwordHash", "$argon2id$");
+		verify(loginRateLimiter).consume("203.0.113.10");
+		verify(userLoginService).login(new LoginRequest("user@example.com", password));
+	}
+
+	@Test
+	void returnsGenericAuthenticationErrorForLoginFailure() throws Exception {
+		doThrow(new AuthenticationFailedException())
+				.when(userLoginService)
+				.login(new LoginRequest("user@example.com", "WrongPassword123!"));
+
+		mockMvc.perform(post("/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","password":"WrongPassword123!"}
+								"""))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("AUTH_001"))
+				.andExpect(jsonPath("$.message").value("Credenciais invalidas."));
+	}
+
+	@Test
+	void returnsTooManyRequestsWhenLoginRateLimitIsExceeded() throws Exception {
+		doThrow(new RateLimitExceededException())
+				.when(loginRateLimiter)
+				.consume("127.0.0.1");
+
+		mockMvc.perform(post("/auth/login")
+						.with(request -> {
+							request.setRemoteAddr("127.0.0.1");
+							return request;
+						})
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","password":"StrongPassword123!"}
+								"""))
+				.andExpect(status().isTooManyRequests())
+				.andExpect(jsonPath("$.code").value("SEC_001"));
 	}
 }

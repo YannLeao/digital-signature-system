@@ -53,4 +53,24 @@ public class User {
 		return new User(id, email, passwordHash, now, now);
 	}
 
+	public boolean isLockedAt(Instant now) {
+		return lockedUntil != null && lockedUntil.isAfter(now);
+	}
+
+	public void recordFailedLogin(Instant now) {
+		failedAttempts++;
+		updatedAt = now;
+	}
+
+	public void lockUntil(Instant lockedUntil, Instant now) {
+		this.lockedUntil = lockedUntil;
+		updatedAt = now;
+	}
+
+	public void clearLoginFailures(Instant now) {
+		failedAttempts = 0;
+		lockedUntil = null;
+		updatedAt = now;
+	}
+
 }

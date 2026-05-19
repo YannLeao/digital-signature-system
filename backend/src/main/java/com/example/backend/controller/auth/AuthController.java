@@ -1,8 +1,13 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.dto.auth.LoginRequest;
+import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
+import com.example.backend.service.auth.LoginRateLimiter;
+import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,9 +21,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
 	private final UserRegistrationService userRegistrationService;
+	private final UserLoginService userLoginService;
+	private final LoginRateLimiter loginRateLimiter;
 
-	public AuthController(UserRegistrationService userRegistrationService) {
+	public AuthController(
+			UserRegistrationService userRegistrationService,
+			UserLoginService userLoginService,
+			LoginRateLimiter loginRateLimiter
+	) {
 		this.userRegistrationService = userRegistrationService;
+		this.userLoginService = userLoginService;
+		this.loginRateLimiter = loginRateLimiter;
 	}
 
 	@PostMapping("/register")
@@ -26,5 +39,12 @@ public class AuthController {
 	RegisterUserResponse register(@Valid @RequestBody RegisterUserRequest request) {
 		userRegistrationService.register(request);
 		return new RegisterUserResponse("Usuario registrado com sucesso.");
+	}
+
+	@PostMapping("/login")
+	LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+		loginRateLimiter.consume(servletRequest.getRemoteAddr());
+		userLoginService.login(request);
+		return new LoginResponse("Login realizado com sucesso.");
 	}
 }

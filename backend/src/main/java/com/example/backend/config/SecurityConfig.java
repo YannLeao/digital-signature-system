@@ -20,9 +20,21 @@ public class SecurityConfig {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
-				.csrf(csrf -> csrf.ignoringRequestMatchers("/auth/register", "/api/v1/auth/register"))
+				.csrf(csrf -> csrf.ignoringRequestMatchers(
+						"/auth/register",
+						"/api/v1/auth/register",
+						"/auth/login",
+						"/api/v1/auth/login"
+				))
 				.authorizeHttpRequests(authorize -> authorize
-						.requestMatchers("/health", "/api/v1/health", "/auth/register", "/api/v1/auth/register").permitAll()
+						.requestMatchers(
+								"/health",
+								"/api/v1/health",
+								"/auth/register",
+								"/api/v1/auth/register",
+								"/auth/login",
+								"/api/v1/auth/login"
+						).permitAll()
 						.anyRequest().authenticated()
 				)
 				.httpBasic(Customizer.withDefaults())
