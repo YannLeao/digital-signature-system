@@ -17,7 +17,12 @@ public class EnvironmentValidationConfig {
 			"DB_PORT",
 			"DB_NAME",
 			"DB_USERNAME",
-			"DB_PASSWORD"
+			"DB_PASSWORD",
+			"CORS_ALLOWED_ORIGINS",
+			"CORS_ALLOWED_METHODS",
+			"CORS_ALLOWED_HEADERS",
+			"CORS_ALLOW_CREDENTIALS",
+			"CORS_MAX_AGE"
 	);
 
 	@Bean
