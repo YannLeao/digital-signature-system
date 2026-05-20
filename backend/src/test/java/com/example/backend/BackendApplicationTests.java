@@ -24,9 +24,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 		"CORS_ALLOWED_HEADERS=Authorization,Content-Type,X-Request-ID",
 		"CORS_ALLOW_CREDENTIALS=true",
 		"CORS_MAX_AGE=3600",
-		"webauthn.rp.id=localhost",
-		"webauthn.rp.name=Projeto Seguranca",
-		"webauthn.origin=http://localhost:5173",
+		"WEBAUTHN_RP_ID=localhost",
+		"WEBAUTHN_RP_NAME=Projeto_Seguranca",
+		"WEBAUTHN_ORIGIN=http://localhost:5173",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 class BackendApplicationTests {

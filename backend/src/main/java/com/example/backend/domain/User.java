@@ -1,22 +1,13 @@
 package com.example.backend.domain;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Getter;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
-import com.example.backend.entity.Passkey;
-
-@Getter
 @Entity
 @Table(name = "users")
 public class User {
@@ -43,9 +34,6 @@ public class User {
 	@Column(name = "locked_until")
 	private Instant lockedUntil;
 
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-		private List<Passkey> passkeys = new ArrayList<>();
-
 	protected User() {
 	}
 
@@ -61,6 +49,34 @@ public class User {
 
 	public static User register(UUID id, String email, String passwordHash, Instant now) {
 		return new User(id, email, passwordHash, now, now);
+	}
+
+	public UUID getId() {
+		return id;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public String getPasswordHash() {
+		return passwordHash;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
+	}
+
+	public int getFailedAttempts() {
+		return failedAttempts;
+	}
+
+	public Instant getLockedUntil() {
+		return lockedUntil;
 	}
 
 	public boolean isLockedAt(Instant now) {

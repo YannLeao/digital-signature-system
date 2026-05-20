@@ -22,7 +22,10 @@ public class EnvironmentValidationConfig {
 			"CORS_ALLOWED_METHODS",
 			"CORS_ALLOWED_HEADERS",
 			"CORS_ALLOW_CREDENTIALS",
-			"CORS_MAX_AGE"
+			"CORS_MAX_AGE",
+			"WEBAUTHN_RP_ID",
+			"WEBAUTHN_RP_NAME",
+			"WEBAUTHN_ORIGIN"
 	);
 
 	@Bean
