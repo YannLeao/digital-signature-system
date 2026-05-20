@@ -1,13 +1,20 @@
 package com.example.backend.domain;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+
+import com.example.backend.entity.Passkey;
 
 @Getter
 @Entity
@@ -35,6 +42,9 @@ public class User {
 
 	@Column(name = "locked_until")
 	private Instant lockedUntil;
+
+	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+		private List<Passkey> passkeys = new ArrayList<>();
 
 	protected User() {
 	}
