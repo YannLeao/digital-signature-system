@@ -25,7 +25,10 @@ class EnvironmentValidationConfigTests {
 						"CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS",
 						"CORS_ALLOWED_HEADERS=Authorization,Content-Type,X-Request-ID",
 						"CORS_ALLOW_CREDENTIALS=true",
-						"CORS_MAX_AGE=3600"
+						"CORS_MAX_AGE=3600",
+						"WEBAUTHN_RP_ID=localhost",
+						"WEBAUTHN_RP_NAME=Projeto Seguranca",
+						"WEBAUTHN_ORIGIN=http://localhost:5173"
 				)
 				.run(context -> assertThat(context).hasNotFailed());
 	}
@@ -45,12 +48,15 @@ class EnvironmentValidationConfigTests {
 						"CORS_ALLOWED_METHODS=",
 						"CORS_ALLOWED_HEADERS=",
 						"CORS_ALLOW_CREDENTIALS=",
-						"CORS_MAX_AGE="
+						"CORS_MAX_AGE=",
+						"WEBAUTHN_RP_ID=",
+						"WEBAUTHN_RP_NAME=",
+						"WEBAUTHN_ORIGIN="
 				)
 				.run(context -> assertThat(context)
 						.hasFailed()
 						.getFailure()
 						.hasRootCauseInstanceOf(IllegalStateException.class)
-						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE"));
+						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE, WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME, WEBAUTHN_ORIGIN"));
 	}
 }

@@ -1,9 +1,6 @@
 package com.example.backend.repository;
 
 import com.example.backend.domain.User;
-import com.example.backend.entity.Passkey;
-import com.example.backend.repository.PasskeyRepository;
-import com.example.backend.repository.UserRepository;
 import com.yubico.webauthn.CredentialRepository;
 import com.yubico.webauthn.RegisteredCredential;
 import com.yubico.webauthn.data.ByteArray;
@@ -27,27 +24,24 @@ public class WebAuthnCredentialRepository implements CredentialRepository {
 
     @Override
     public Set<PublicKeyCredentialDescriptor> getCredentialIdsForUsername(String username) {
-        Optional<User> userOpt = userRepository.findByEmail(username);
-        if (userOpt.isEmpty()) {
-            return Collections.emptySet();
-        }
-        
-        return passkeyRepository.findByUserAndActiveTrue(userOpt.get()).stream()
-            .map(passkey -> {
-                try {
-                    return PublicKeyCredentialDescriptor.builder()
-                        .id(ByteArray.fromBase64Url(passkey.getCredentialId()))
-                        .build();
-                } catch (Base64UrlException e) {
-                    throw new RuntimeException("Erro ao decodificar credentialId do banco", e);
-                }
-            })
-            .collect(Collectors.toSet());
+        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(username);
+        return userOpt.map(user -> passkeyRepository.findByUserAndActiveTrue(user).stream()
+                .map(passkey -> {
+                    try {
+                        return PublicKeyCredentialDescriptor.builder()
+                                .id(ByteArray.fromBase64Url(passkey.getCredentialId()))
+                                .build();
+                    } catch (Base64UrlException e) {
+                        throw new RuntimeException("Erro ao decodificar credentialId do banco", e);
+                    }
+                })
+                .collect(Collectors.toSet())).orElse(Collections.emptySet());
+
     }
 
     @Override
     public Optional<ByteArray> getUserHandleForUsername(String username) {
-        return userRepository.findByEmail(username)
+        return userRepository.findByEmailIgnoreCase(username)
             .map(user -> new ByteArray(user.getId().toString().getBytes()));
     }
 

@@ -26,7 +26,11 @@ public class SecurityConfig {
 						"/auth/register",
 						"/api/v1/auth/register",
 						"/auth/login",
-						"/api/v1/auth/login"
+						"/api/v1/auth/login",
+						"/auth/passkey/register/start",
+						"/api/v1/auth/passkey/register/start",
+						"/auth/passkey/register/finish",
+						"/api/v1/auth/passkey/register/finish"
 				))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -36,7 +40,11 @@ public class SecurityConfig {
 								"/auth/register",
 								"/api/v1/auth/register",
 								"/auth/login",
-								"/api/v1/auth/login"
+								"/api/v1/auth/login",
+								"/auth/passkey/register/start",
+								"/api/v1/auth/passkey/register/start",
+								"/auth/passkey/register/finish",
+								"/api/v1/auth/passkey/register/finish"
 						).permitAll()
 						.anyRequest().authenticated()
 				)
