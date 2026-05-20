@@ -16,7 +16,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 
 - [x] AUTH-01 — Cadastro de usuário com Argon2id
 - [x] AUTH-02 — Login com mensagem genérica e proteção contra brute force
-- [ ] AUTH-03 — Tela de cadastro e login
+- [x] AUTH-03 — Tela de cadastro e login
 
 ## EPIC-02 — Passkeys / WebAuthn
 
