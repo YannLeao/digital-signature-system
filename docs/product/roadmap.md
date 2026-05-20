@@ -39,7 +39,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 ## EPIC-05 — CORS e Headers de Segurança
 
 - [x] SEC-01 — CORS restritivo
-- [ ] SEC-02 — HTTP security headers
+- [x] SEC-02 — HTTP security headers
 
 ## EPIC-06 — Assinatura Digital de PDFs
 
