@@ -1,5 +1,8 @@
 package com.example.backend.controller;
 
+import com.example.backend.repository.PasskeyRepository;
+import com.example.backend.repository.UserRepository;
+import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.UserRegistrationService;
 import com.example.backend.service.auth.UserLoginService;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"DB_NAME=projeto_3_seguranca",
 		"DB_USERNAME=postgres",
 		"DB_PASSWORD=postgres",
+		"CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173",
+		"CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS",
+		"CORS_ALLOWED_HEADERS=Authorization,Content-Type,X-Request-ID",
+		"CORS_ALLOW_CREDENTIALS=true",
+		"CORS_MAX_AGE=3600",
+		"webauthn.rp.id=localhost",
+		"webauthn.rp.name=Projeto Seguranca",
+		"webauthn.origin=http://localhost:5173",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 class HealthControllerTests {
@@ -37,6 +48,18 @@ class HealthControllerTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private UserLoginService userLoginService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private PasskeyService passkeyService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private UserRepository userRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private PasskeyRepository passkeyRepository;
 
 	@Autowired
 	HealthControllerTests(MockMvc mockMvc) {
