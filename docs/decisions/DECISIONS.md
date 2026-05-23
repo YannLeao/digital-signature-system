@@ -44,3 +44,11 @@ As chaves devem ser fornecidas por ambiente como DER codificado em Base64:
 - `JWT_PUBLIC_KEY_BASE64`: chave publica X.509/SPKI.
 
 Chaves reais de ambiente nao devem ser commitadas no repositorio.
+
+## ADR-007 - Refresh tokens persistidos inicialmente em PostgreSQL
+
+Refresh tokens opacos serao persistidos inicialmente em PostgreSQL, armazenando apenas SHA-256 do token.
+
+Motivo: PostgreSQL ja e a base transacional do projeto e atende a necessidade atual de rotacao, rastreio de familia de tokens, deteccao de reuso e invalidacao de sessao sem introduzir Redis antes de haver demanda real de cache ou distribuicao.
+
+Redis podera ser reavaliado em epicos futuros de sessoes ativas, auditoria e escala.

@@ -33,7 +33,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 ## EPIC-04 — JWT e Refresh Tokens
 
 - [x] JWT-01 — JWT com algoritmo assimétrico e claims
-- [ ] JWT-02 — Refresh token com rotação e cookie HttpOnly
+- [x] JWT-02 — Refresh token com rotação e cookie HttpOnly
 - [ ] JWT-03 — Denylist pós-logout
 
 ## EPIC-05 — CORS e Headers de Segurança

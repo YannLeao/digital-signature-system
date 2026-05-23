@@ -5,7 +5,9 @@ import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.service.PasskeyService;
+import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -66,6 +69,9 @@ class AuthSecurityTests {
 	private JwtService jwtService;
 
 	@MockitoBean
+	private RefreshTokenService refreshTokenService;
+
+	@MockitoBean
 	@SuppressWarnings("unused")
 	private UserRepository userRepository;
 
@@ -98,7 +104,8 @@ class AuthSecurityTests {
 				"password-hash",
 				Instant.parse("2026-05-22T12:00:00Z")
 		));
-		when(jwtService.issueAccessToken(any(), any())).thenReturn(new AccessToken("jwt-token", "Bearer", 900));
+		when(jwtService.issueAccessToken(any(), any(), any())).thenReturn(new AccessToken("jwt-token", "Bearer", 900));
+		when(refreshTokenService.issueForLogin(any(), any(), any())).thenReturn(new RefreshTokenPair("refresh-token", null));
 
 		mockMvc.perform(post("/api/v1/auth/login")
 						.servletPath("/api/v1")
@@ -109,6 +116,23 @@ class AuthSecurityTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.accessToken").value("jwt-token"))
 				.andExpect(jsonPath("$.tokenType").value("Bearer"))
-				.andExpect(jsonPath("$.expiresIn").value(900));
+				.andExpect(jsonPath("$.expiresIn").value(900))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
+	}
+
+	@Test
+	void permitsVersionedRefreshWithoutAuthenticationOrCsrfToken() throws Exception {
+		when(refreshTokenService.rotate(any(), any()))
+				.thenReturn(new com.example.backend.security.RefreshTokenResult(
+						new AccessToken("new-jwt-token", "Bearer", 900),
+						"new-refresh-token"
+				));
+
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.servletPath("/api/v1")
+						.cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh-token")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accessToken").value("new-jwt-token"))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=new-refresh-token")));
 	}
 }

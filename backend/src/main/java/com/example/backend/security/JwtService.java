@@ -8,6 +8,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class JwtService {
 
@@ -22,8 +24,12 @@ public class JwtService {
 	}
 
 	public AccessToken issueAccessToken(User user, ClientContext clientContext) {
+		return issueAccessToken(user, clientContext, UUID.randomUUID());
+	}
+
+	public AccessToken issueAccessToken(User user, ClientContext clientContext, UUID sessionId) {
 		JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();
-		JwtClaimsSet claims = jwtClaimsFactory.createAccessTokenClaims(user, clientContext);
+		JwtClaimsSet claims = jwtClaimsFactory.createAccessTokenClaims(user, clientContext, sessionId);
 		String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
 		return new AccessToken(token, TOKEN_TYPE, jwtClaimsFactory.accessTokenExpiresInSeconds());
