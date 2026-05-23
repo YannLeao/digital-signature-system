@@ -1,5 +1,6 @@
 package com.example.backend.config;
 
+import com.example.backend.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +13,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -27,7 +29,7 @@ public class SecurityConfig {
 	private static final int ARGON2_ITERATIONS = 3;
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 		return http
 				.cors(Customizer.withDefaults())
 				.headers(headers -> headers
@@ -52,6 +54,8 @@ public class SecurityConfig {
 						"/api/v1/auth/login",
 						"/auth/refresh",
 						"/api/v1/auth/refresh",
+						"/auth/logout",
+						"/api/v1/auth/logout",
 						"/auth/passkey/register/start",
 						"/api/v1/auth/passkey/register/start",
 						"/auth/passkey/register/finish",
@@ -76,6 +80,7 @@ public class SecurityConfig {
 						.anyRequest().authenticated()
 				)
 				.httpBasic(Customizer.withDefaults())
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.build();
 	}
 

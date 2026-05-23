@@ -3,6 +3,7 @@ package com.example.backend.security;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,14 +22,23 @@ public class JwtValidator {
 	);
 
 	private final JwtDecoder jwtDecoder;
+	private final JwtDenylistService jwtDenylistService;
 
-	public JwtValidator(JwtDecoder jwtDecoder) {
+	@Autowired
+	public JwtValidator(JwtDecoder jwtDecoder, JwtDenylistService jwtDenylistService) {
 		this.jwtDecoder = jwtDecoder;
+		this.jwtDenylistService = jwtDenylistService;
+	}
+
+	JwtValidator(JwtDecoder jwtDecoder) {
+		this.jwtDecoder = jwtDecoder;
+		this.jwtDenylistService = null;
 	}
 
 	public Jwt validate(String token) {
 		Jwt jwt = jwtDecoder.decode(token);
 		validateRequiredClaims(jwt);
+		validateDenylist(jwt);
 		return jwt;
 	}
 
@@ -38,6 +48,12 @@ public class JwtValidator {
 			if (value == null || value.toString().isBlank()) {
 				throw new BadJwtException("JWT missing required claim: " + claim);
 			}
+		}
+	}
+
+	private void validateDenylist(Jwt jwt) {
+		if (jwtDenylistService != null && jwtDenylistService.isDenylisted(jwt.getId())) {
+			throw new BadJwtException("JWT has been revoked.");
 		}
 	}
 }

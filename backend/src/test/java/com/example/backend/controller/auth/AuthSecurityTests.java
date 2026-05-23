@@ -1,10 +1,13 @@
 package com.example.backend.controller.auth;
 
 import com.example.backend.domain.User;
+import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
+import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.RefreshTokenService;
@@ -15,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -70,6 +74,16 @@ class AuthSecurityTests {
 
 	@MockitoBean
 	private RefreshTokenService refreshTokenService;
+
+	@MockitoBean
+	private JwtValidator jwtValidator;
+
+	@MockitoBean
+	private JwtLogoutService jwtLogoutService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtDenylistRepository jwtDenylistRepository;
 
 	@MockitoBean
 	@SuppressWarnings("unused")
@@ -134,5 +148,36 @@ class AuthSecurityTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.accessToken").value("new-jwt-token"))
 				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=new-refresh-token")));
+	}
+
+	@Test
+	void protectsVersionedLogoutWithBearerTokenAndClearsCookie() throws Exception {
+		Jwt jwt = jwt();
+		when(jwtValidator.validate("access-token")).thenReturn(jwt);
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+						.servletPath("/api/v1")
+						.header("Authorization", "Bearer access-token"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Logout realizado com sucesso."))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=")))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
+
+		org.mockito.Mockito.verify(jwtLogoutService).logout(jwt);
+	}
+
+	private Jwt jwt() {
+		Instant issuedAt = Instant.parse("2026-05-22T12:00:00Z");
+		return Jwt.withTokenValue("access-token")
+				.header("alg", "RS256")
+				.subject("11111111-1111-1111-1111-111111111111")
+				.claim("jti", "22222222-2222-2222-2222-222222222222")
+				.issuedAt(issuedAt)
+				.expiresAt(issuedAt.plusSeconds(900))
+				.claim("session_id", "33333333-3333-3333-3333-333333333333")
+				.claim("ip", "ip-hash")
+				.claim("ua_hash", "ua-hash")
+				.build();
 	}
 }
