@@ -31,3 +31,16 @@ Motivo: robustez, suporte a recursos avançados e rastreabilidade das mudanças.
 Funcionalidades avançadas de segurança serão implementadas apenas quando suas bases estiverem prontas.
 
 Motivo: evitar overengineering prematuro e reduzir risco de implementações parciais inseguras.
+
+## ADR-006 - JWT usa RS256
+
+Access tokens JWT serao assinados com RS256 usando par de chaves RSA assimetrico.
+
+Motivo: separar emissao e validacao por chave privada/publica, evitar segredo compartilhado HS256 e preparar a arquitetura para validacao centralizada, denylist futura e gerenciamento de sessoes.
+
+As chaves devem ser fornecidas por ambiente como DER codificado em Base64:
+
+- `JWT_PRIVATE_KEY_BASE64`: chave privada PKCS#8.
+- `JWT_PUBLIC_KEY_BASE64`: chave publica X.509/SPKI.
+
+Chaves reais de ambiente nao devem ser commitadas no repositorio.

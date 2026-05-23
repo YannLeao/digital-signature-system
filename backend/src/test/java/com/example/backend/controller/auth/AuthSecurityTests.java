@@ -1,7 +1,10 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.domain.User;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.AccessToken;
+import com.example.backend.security.JwtService;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
@@ -14,6 +17,11 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +63,9 @@ class AuthSecurityTests {
 	private PasskeyService passkeyService;
 
 	@MockitoBean
+	private JwtService jwtService;
+
+	@MockitoBean
 	@SuppressWarnings("unused")
 	private UserRepository userRepository;
 
@@ -81,6 +92,14 @@ class AuthSecurityTests {
 
 	@Test
 	void permitsVersionedLoginWithoutAuthenticationOrCsrfToken() throws Exception {
+		when(userLoginService.login(any())).thenReturn(User.register(
+				UUID.fromString("11111111-1111-1111-1111-111111111111"),
+				"user@example.com",
+				"password-hash",
+				Instant.parse("2026-05-22T12:00:00Z")
+		));
+		when(jwtService.issueAccessToken(any(), any())).thenReturn(new AccessToken("jwt-token", "Bearer", 900));
+
 		mockMvc.perform(post("/api/v1/auth/login")
 						.servletPath("/api/v1")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -88,6 +107,8 @@ class AuthSecurityTests {
 								{"email":"user@example.com","password":"StrongPassword123!"}
 								"""))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.message").value("Login realizado com sucesso."));
+				.andExpect(jsonPath("$.accessToken").value("jwt-token"))
+				.andExpect(jsonPath("$.tokenType").value("Bearer"))
+				.andExpect(jsonPath("$.expiresIn").value(900));
 	}
 }

@@ -28,7 +28,10 @@ class EnvironmentValidationConfigTests {
 						"CORS_MAX_AGE=3600",
 						"WEBAUTHN_RP_ID=localhost",
 						"WEBAUTHN_RP_NAME=Projeto Seguranca",
-						"WEBAUTHN_ORIGIN=http://localhost:5173"
+						"WEBAUTHN_ORIGIN=http://localhost:5173",
+						"JWT_PRIVATE_KEY_BASE64=private-key",
+						"JWT_PUBLIC_KEY_BASE64=public-key",
+						"JWT_ISSUER=projeto-3-seguranca"
 				)
 				.run(context -> assertThat(context).hasNotFailed());
 	}
@@ -51,12 +54,15 @@ class EnvironmentValidationConfigTests {
 						"CORS_MAX_AGE=",
 						"WEBAUTHN_RP_ID=",
 						"WEBAUTHN_RP_NAME=",
-						"WEBAUTHN_ORIGIN="
+						"WEBAUTHN_ORIGIN=",
+						"JWT_PRIVATE_KEY_BASE64=",
+						"JWT_PUBLIC_KEY_BASE64=",
+						"JWT_ISSUER="
 				)
 				.run(context -> assertThat(context)
 						.hasFailed()
 						.getFailure()
 						.hasRootCauseInstanceOf(IllegalStateException.class)
-						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE, WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME, WEBAUTHN_ORIGIN"));
+						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE, WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME, WEBAUTHN_ORIGIN, JWT_PRIVATE_KEY_BASE64, JWT_PUBLIC_KEY_BASE64, JWT_ISSUER"));
 	}
 }

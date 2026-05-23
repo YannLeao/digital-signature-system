@@ -40,8 +40,9 @@ class UserLoginServiceTests {
 		user.lockUntil(NOW.minusSeconds(60), NOW.minusSeconds(120));
 		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
-		service.login(new LoginRequest(" User@Example.COM ", "StrongPassword123!"));
+		User loggedUser = service.login(new LoginRequest(" User@Example.COM ", "StrongPassword123!"));
 
+		assertThat(loggedUser).isSameAs(user);
 		assertThat(user.getFailedAttempts()).isZero();
 		assertThat(user.getLockedUntil()).isNull();
 		assertThat(user.getUpdatedAt()).isEqualTo(NOW);
