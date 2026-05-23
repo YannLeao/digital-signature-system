@@ -4,6 +4,10 @@ import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
+import com.example.backend.domain.User;
+import com.example.backend.security.AccessToken;
+import com.example.backend.security.ClientContext;
+import com.example.backend.security.JwtService;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
@@ -23,15 +27,18 @@ public class AuthController {
 	private final UserRegistrationService userRegistrationService;
 	private final UserLoginService userLoginService;
 	private final LoginRateLimiter loginRateLimiter;
+	private final JwtService jwtService;
 
 	public AuthController(
 			UserRegistrationService userRegistrationService,
 			UserLoginService userLoginService,
-			LoginRateLimiter loginRateLimiter
+			LoginRateLimiter loginRateLimiter,
+			JwtService jwtService
 	) {
 		this.userRegistrationService = userRegistrationService;
 		this.userLoginService = userLoginService;
 		this.loginRateLimiter = loginRateLimiter;
+		this.jwtService = jwtService;
 	}
 
 	@PostMapping("/register")
@@ -44,7 +51,12 @@ public class AuthController {
 	@PostMapping("/login")
 	LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 		loginRateLimiter.consume(servletRequest.getRemoteAddr());
-		userLoginService.login(request);
-		return new LoginResponse("Login realizado com sucesso.");
+		User user = userLoginService.login(request);
+		AccessToken accessToken = jwtService.issueAccessToken(user, clientContext(servletRequest));
+		return new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn());
+	}
+
+	private ClientContext clientContext(HttpServletRequest request) {
+		return new ClientContext(request.getRemoteAddr(), request.getHeader("User-Agent"));
 	}
 }

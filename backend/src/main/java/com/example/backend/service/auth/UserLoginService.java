@@ -39,7 +39,7 @@ public class UserLoginService {
 	}
 
 	@Transactional
-	public void login(LoginRequest request) {
+	public User login(LoginRequest request) {
 		String normalizedEmail = normalizeEmail(request.email());
 		Instant now = Instant.now(clock);
 		Optional<User> userCandidate = userRepository.findByEmailIgnoreCase(normalizedEmail);
@@ -61,6 +61,7 @@ public class UserLoginService {
 		}
 
 		user.clearLoginFailures(now);
+		return user;
 	}
 
 	private void registerFailure(User user, Instant now) {

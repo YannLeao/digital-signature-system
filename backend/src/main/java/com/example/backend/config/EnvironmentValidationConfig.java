@@ -25,7 +25,10 @@ public class EnvironmentValidationConfig {
 			"CORS_MAX_AGE",
 			"WEBAUTHN_RP_ID",
 			"WEBAUTHN_RP_NAME",
-			"WEBAUTHN_ORIGIN"
+			"WEBAUTHN_ORIGIN",
+			"JWT_PRIVATE_KEY_BASE64",
+			"JWT_PUBLIC_KEY_BASE64",
+			"JWT_ISSUER"
 	);
 
 	@Bean
