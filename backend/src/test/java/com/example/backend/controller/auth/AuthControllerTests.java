@@ -9,6 +9,7 @@ import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.RateLimitExceededException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
+import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
@@ -21,6 +22,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -49,6 +54,7 @@ class AuthControllerTests {
 	private JwtService jwtService;
 	private RefreshTokenService refreshTokenService;
 	private RefreshTokenCookieFactory refreshTokenCookieFactory;
+	private JwtLogoutService jwtLogoutService;
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -59,6 +65,7 @@ class AuthControllerTests {
 		jwtService = mock(JwtService.class);
 		refreshTokenService = mock(RefreshTokenService.class);
 		refreshTokenCookieFactory = mock(RefreshTokenCookieFactory.class);
+		jwtLogoutService = mock(JwtLogoutService.class);
 		when(refreshTokenCookieFactory.cookieName()).thenReturn("refresh_token");
 		when(refreshTokenCookieFactory.create(any())).thenAnswer(invocation -> ResponseCookie.from("refresh_token", invocation.getArgument(0))
 				.httpOnly(true)
@@ -66,6 +73,13 @@ class AuthControllerTests {
 				.sameSite("Strict")
 				.path("/api/v1/auth/refresh")
 				.maxAge(604800)
+				.build());
+		when(refreshTokenCookieFactory.clear()).thenReturn(ResponseCookie.from("refresh_token", "")
+				.httpOnly(true)
+				.secure(false)
+				.sameSite("Strict")
+				.path("/api/v1/auth/refresh")
+				.maxAge(0)
 				.build());
 
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -77,9 +91,11 @@ class AuthControllerTests {
 						loginRateLimiter,
 						jwtService,
 						refreshTokenService,
-						refreshTokenCookieFactory
+						refreshTokenCookieFactory,
+						jwtLogoutService
 				))
 				.setControllerAdvice(new GlobalExceptionHandler())
+				.setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
 				.setValidator(validator)
 				.build();
 	}
@@ -275,6 +291,36 @@ class AuthControllerTests {
 				.andExpect(jsonPath("$.message").value("Sessao invalida ou expirada."));
 
 		verify(refreshTokenService, never()).rotate(any(), any());
+	}
+
+	@Test
+	void logoutDenylistsAccessTokenAndClearsRefreshCookie() throws Exception {
+		Jwt jwt = jwt();
+		SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
+
+		mockMvc.perform(post("/auth/logout"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Logout realizado com sucesso."))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=")))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")))
+				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
+
+		verify(jwtLogoutService).logout(jwt);
+		SecurityContextHolder.clearContext();
+	}
+
+	private Jwt jwt() {
+		Instant issuedAt = Instant.parse("2026-05-22T12:00:00Z");
+		return Jwt.withTokenValue("access-token")
+				.header("alg", "RS256")
+				.subject("11111111-1111-1111-1111-111111111111")
+				.claim("jti", "22222222-2222-2222-2222-222222222222")
+				.issuedAt(issuedAt)
+				.expiresAt(issuedAt.plusSeconds(900))
+				.claim("session_id", "33333333-3333-3333-3333-333333333333")
+				.claim("ip", "ip-hash")
+				.claim("ua_hash", "ua-hash")
+				.build();
 	}
 
 	@Test

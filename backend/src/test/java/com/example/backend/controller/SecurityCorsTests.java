@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.repository.PasskeyRepository;
+import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.RefreshTokenRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.PasskeyService;
@@ -65,6 +66,10 @@ class SecurityCorsTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private RefreshTokenRepository refreshTokenRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtDenylistRepository jwtDenylistRepository;
 
 	@Autowired
 	SecurityCorsTests(MockMvc mockMvc) {

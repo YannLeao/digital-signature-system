@@ -1,6 +1,7 @@
 package com.example.backend;
 
 import com.example.backend.repository.PasskeyRepository;
+import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.RefreshTokenRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.PasskeyService;
@@ -55,6 +56,10 @@ class BackendApplicationTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private RefreshTokenRepository refreshTokenRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtDenylistRepository jwtDenylistRepository;
 
 	@Test
 	void contextLoads() {

@@ -2,12 +2,15 @@ package com.example.backend.controller.auth;
 
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
+import com.example.backend.dto.auth.LogoutResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
 import com.example.backend.domain.User;
+import com.example.backend.exception.InvalidAccessTokenException;
 import com.example.backend.exception.InvalidRefreshTokenException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
+import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
@@ -22,6 +25,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +46,7 @@ public class AuthController {
 	private final JwtService jwtService;
 	private final RefreshTokenService refreshTokenService;
 	private final RefreshTokenCookieFactory refreshTokenCookieFactory;
+	private final JwtLogoutService jwtLogoutService;
 
 	public AuthController(
 			UserRegistrationService userRegistrationService,
@@ -48,7 +54,8 @@ public class AuthController {
 			LoginRateLimiter loginRateLimiter,
 			JwtService jwtService,
 			RefreshTokenService refreshTokenService,
-			RefreshTokenCookieFactory refreshTokenCookieFactory
+			RefreshTokenCookieFactory refreshTokenCookieFactory,
+			JwtLogoutService jwtLogoutService
 	) {
 		this.userRegistrationService = userRegistrationService;
 		this.userLoginService = userLoginService;
@@ -56,6 +63,7 @@ public class AuthController {
 		this.jwtService = jwtService;
 		this.refreshTokenService = refreshTokenService;
 		this.refreshTokenCookieFactory = refreshTokenCookieFactory;
+		this.jwtLogoutService = jwtLogoutService;
 	}
 
 	@PostMapping("/register")
@@ -80,6 +88,18 @@ public class AuthController {
 	ResponseEntity<LoginResponse> refresh(HttpServletRequest servletRequest) {
 		RefreshTokenResult result = refreshTokenService.rotate(refreshTokenFromCookie(servletRequest), clientContext(servletRequest));
 		return accessTokenResponse(result.accessToken(), result.refreshToken());
+	}
+
+	@PostMapping("/logout")
+	ResponseEntity<LogoutResponse> logout(@AuthenticationPrincipal Jwt jwt) {
+		if (jwt == null) {
+			throw new InvalidAccessTokenException();
+		}
+
+		jwtLogoutService.logout(jwt);
+		return ResponseEntity.ok()
+				.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
+				.body(new LogoutResponse("Logout realizado com sucesso."));
 	}
 
 	private ClientContext clientContext(HttpServletRequest request) {

@@ -130,6 +130,21 @@ class RefreshTokenServiceTests {
 		verify(jwtService, never()).issueAccessToken(any(), any(), any());
 	}
 
+	@Test
+	void revokesAllRefreshTokensFromSessionOnLogout() {
+		User user = user();
+		UUID sessionId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+		RefreshToken current = token(user, "current-token", NOW.plusSeconds(604800), UUID.randomUUID(), sessionId);
+		RefreshToken rotated = token(user, "rotated-token", NOW.plusSeconds(604800), UUID.randomUUID(), sessionId);
+		rotated.revoke(NOW.minusSeconds(60));
+		when(refreshTokenRepository.findBySessionId(sessionId)).thenReturn(List.of(current, rotated));
+
+		service.revokeSession(sessionId);
+
+		assertThat(current.getRevokedAt()).isEqualTo(NOW);
+		assertThat(rotated.getRevokedAt()).isEqualTo(NOW.minusSeconds(60));
+	}
+
 	private RefreshToken token(User user, String rawToken, Instant expiresAt) {
 		return token(user, rawToken, expiresAt, UUID.randomUUID(), UUID.randomUUID());
 	}

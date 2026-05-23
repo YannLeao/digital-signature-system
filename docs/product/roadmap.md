@@ -34,7 +34,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 
 - [x] JWT-01 — JWT com algoritmo assimétrico e claims
 - [x] JWT-02 — Refresh token com rotação e cookie HttpOnly
-- [ ] JWT-03 — Denylist pós-logout
+- [x] JWT-03 — Denylist pós-logout
 
 ## EPIC-05 — CORS e Headers de Segurança
 

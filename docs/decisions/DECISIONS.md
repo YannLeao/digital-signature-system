@@ -36,7 +36,8 @@ Motivo: evitar overengineering prematuro e reduzir risco de implementações par
 
 Access tokens JWT serao assinados com RS256 usando par de chaves RSA assimetrico.
 
-Motivo: separar emissao e validacao por chave privada/publica, evitar segredo compartilhado HS256 e preparar a arquitetura para validacao centralizada, denylist futura e gerenciamento de sessoes.
+Motivo: separar emissao e validacao por chave privada/publica, evitar segredo compartilhado HS256 e preparar a 
+arquitetura para validacao centralizada, denylist futura e gerenciamento de sessoes.
 
 As chaves devem ser fornecidas por ambiente como DER codificado em Base64:
 
@@ -49,6 +50,20 @@ Chaves reais de ambiente nao devem ser commitadas no repositorio.
 
 Refresh tokens opacos serao persistidos inicialmente em PostgreSQL, armazenando apenas SHA-256 do token.
 
-Motivo: PostgreSQL ja e a base transacional do projeto e atende a necessidade atual de rotacao, rastreio de familia de tokens, deteccao de reuso e invalidacao de sessao sem introduzir Redis antes de haver demanda real de cache ou distribuicao.
+Motivo: PostgreSQL ja e a base transacional do projeto e atende a necessidade atual de rotacao, rastreio de familia de 
+tokens, deteccao de reuso e invalidacao de sessao sem introduzir Redis antes de haver demanda real de cache ou distribuicao.
 
 Redis podera ser reavaliado em epicos futuros de sessoes ativas, auditoria e escala.
+
+## ADR-008 - Denylist JWT persistida inicialmente em PostgreSQL
+
+Access tokens revogados apos logout serao registrados inicialmente em PostgreSQL usando a claim `jti` como identificador 
+unico.
+
+Motivo: PostgreSQL ja e a base transacional do projeto, simplifica auditoria e evita introduzir Redis antes de haver 
+necessidade concreta de cache distribuido ou multiplas instancias.
+
+A denylist armazena `jti`, usuario, `session_id`, expiracao do access token, instante de revogacao e motivo controlado. 
+Entradas expiradas devem ser removidas futuramente por rotina periodica simples.
+
+Redis podera ser reavaliado em epicos futuros de sessoes ativas, auditoria, multiplas instancias e escalabilidade horizontal.

@@ -91,6 +91,16 @@ public class RefreshTokenService {
 		return new RefreshTokenResult(accessToken, replacement.rawToken());
 	}
 
+	@Transactional
+	public void revokeSession(UUID sessionId) {
+		Instant now = Instant.now(clock);
+		for (RefreshToken token : refreshTokenRepository.findBySessionId(sessionId)) {
+			if (!token.isRevoked()) {
+				token.revoke(now);
+			}
+		}
+	}
+
 	private RefreshTokenPair issue(User user, ClientContext clientContext, UUID familyId, UUID sessionId) {
 		String rawToken = generateOpaqueToken();
 		Instant issuedAt = Instant.now(clock);
