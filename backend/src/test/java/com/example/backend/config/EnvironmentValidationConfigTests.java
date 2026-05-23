@@ -31,7 +31,12 @@ class EnvironmentValidationConfigTests {
 						"WEBAUTHN_ORIGIN=http://localhost:5173",
 						"JWT_PRIVATE_KEY_BASE64=private-key",
 						"JWT_PUBLIC_KEY_BASE64=public-key",
-						"JWT_ISSUER=projeto-3-seguranca"
+						"JWT_ISSUER=projeto-3-seguranca",
+						"REFRESH_TOKEN_COOKIE_NAME=refresh_token",
+						"REFRESH_TOKEN_COOKIE_SECURE=false",
+						"REFRESH_TOKEN_COOKIE_SAME_SITE=Strict",
+						"REFRESH_TOKEN_COOKIE_PATH=/api/v1/auth/refresh",
+						"REFRESH_TOKEN_EXPIRATION_DAYS=7"
 				)
 				.run(context -> assertThat(context).hasNotFailed());
 	}
@@ -57,12 +62,17 @@ class EnvironmentValidationConfigTests {
 						"WEBAUTHN_ORIGIN=",
 						"JWT_PRIVATE_KEY_BASE64=",
 						"JWT_PUBLIC_KEY_BASE64=",
-						"JWT_ISSUER="
+						"JWT_ISSUER=",
+						"REFRESH_TOKEN_COOKIE_NAME=",
+						"REFRESH_TOKEN_COOKIE_SECURE=",
+						"REFRESH_TOKEN_COOKIE_SAME_SITE=",
+						"REFRESH_TOKEN_COOKIE_PATH=",
+						"REFRESH_TOKEN_EXPIRATION_DAYS="
 				)
 				.run(context -> assertThat(context)
 						.hasFailed()
 						.getFailure()
 						.hasRootCauseInstanceOf(IllegalStateException.class)
-						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE, WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME, WEBAUTHN_ORIGIN, JWT_PRIVATE_KEY_BASE64, JWT_PUBLIC_KEY_BASE64, JWT_ISSUER"));
+						.hasMessageContaining("Missing required environment variables: APP_ENV, APP_SECRET, DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD, CORS_ALLOWED_ORIGINS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS, CORS_ALLOW_CREDENTIALS, CORS_MAX_AGE, WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME, WEBAUTHN_ORIGIN, JWT_PRIVATE_KEY_BASE64, JWT_PUBLIC_KEY_BASE64, JWT_ISSUER, REFRESH_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_SECURE, REFRESH_TOKEN_COOKIE_SAME_SITE, REFRESH_TOKEN_COOKIE_PATH, REFRESH_TOKEN_EXPIRATION_DAYS"));
 	}
 }

@@ -33,6 +33,10 @@ public class JwtClaimsFactory {
 	}
 
 	public JwtClaimsSet createAccessTokenClaims(User user, ClientContext clientContext) {
+		return createAccessTokenClaims(user, clientContext, UUID.randomUUID());
+	}
+
+	public JwtClaimsSet createAccessTokenClaims(User user, ClientContext clientContext, UUID sessionId) {
 		Instant issuedAt = Instant.now(clock);
 
 		return JwtClaimsSet.builder()
@@ -41,7 +45,7 @@ public class JwtClaimsFactory {
 				.id(UUID.randomUUID().toString())
 				.issuedAt(issuedAt)
 				.expiresAt(issuedAt.plus(ACCESS_TOKEN_TTL))
-				.claim("session_id", UUID.randomUUID().toString())
+				.claim("session_id", sessionId.toString())
 				.claim("ip", sha256(clientContext.ipAddress()))
 				.claim("ua_hash", sha256(clientContext.userAgent()))
 				.build();

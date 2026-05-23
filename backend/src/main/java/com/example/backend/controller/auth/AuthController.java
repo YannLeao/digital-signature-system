@@ -5,20 +5,31 @@ import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
 import com.example.backend.domain.User;
+import com.example.backend.exception.InvalidRefreshTokenException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.RefreshTokenCookieFactory;
+import com.example.backend.security.RefreshTokenPair;
+import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.auth.LoginRateLimiter;
+import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Arrays;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
@@ -28,17 +39,23 @@ public class AuthController {
 	private final UserLoginService userLoginService;
 	private final LoginRateLimiter loginRateLimiter;
 	private final JwtService jwtService;
+	private final RefreshTokenService refreshTokenService;
+	private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
 	public AuthController(
 			UserRegistrationService userRegistrationService,
 			UserLoginService userLoginService,
 			LoginRateLimiter loginRateLimiter,
-			JwtService jwtService
+			JwtService jwtService,
+			RefreshTokenService refreshTokenService,
+			RefreshTokenCookieFactory refreshTokenCookieFactory
 	) {
 		this.userRegistrationService = userRegistrationService;
 		this.userLoginService = userLoginService;
 		this.loginRateLimiter = loginRateLimiter;
 		this.jwtService = jwtService;
+		this.refreshTokenService = refreshTokenService;
+		this.refreshTokenCookieFactory = refreshTokenCookieFactory;
 	}
 
 	@PostMapping("/register")
@@ -49,14 +66,43 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+	ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 		loginRateLimiter.consume(servletRequest.getRemoteAddr());
 		User user = userLoginService.login(request);
-		AccessToken accessToken = jwtService.issueAccessToken(user, clientContext(servletRequest));
-		return new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn());
+		ClientContext clientContext = clientContext(servletRequest);
+		UUID sessionId = UUID.randomUUID();
+		AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
+		RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
+		return accessTokenResponse(accessToken, refreshToken.rawToken());
+	}
+
+	@PostMapping("/refresh")
+	ResponseEntity<LoginResponse> refresh(HttpServletRequest servletRequest) {
+		RefreshTokenResult result = refreshTokenService.rotate(refreshTokenFromCookie(servletRequest), clientContext(servletRequest));
+		return accessTokenResponse(result.accessToken(), result.refreshToken());
 	}
 
 	private ClientContext clientContext(HttpServletRequest request) {
 		return new ClientContext(request.getRemoteAddr(), request.getHeader("User-Agent"));
+	}
+
+	private ResponseEntity<LoginResponse> accessTokenResponse(AccessToken accessToken, String refreshToken) {
+		return ResponseEntity.ok()
+				.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(refreshToken).toString())
+				.body(new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn()));
+	}
+
+	private String refreshTokenFromCookie(HttpServletRequest request) {
+		Cookie[] cookies = request.getCookies();
+		if (cookies == null) {
+			throw new InvalidRefreshTokenException();
+		}
+
+		return Arrays.stream(cookies)
+				.filter(cookie -> refreshTokenCookieFactory.cookieName().equals(cookie.getName()))
+				.map(Cookie::getValue)
+				.filter(value -> !value.isBlank())
+				.findFirst()
+				.orElseThrow(InvalidRefreshTokenException::new);
 	}
 }
