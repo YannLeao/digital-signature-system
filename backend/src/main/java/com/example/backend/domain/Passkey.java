@@ -124,4 +124,8 @@ public class Passkey {
 	public void deactivate() {
 		active = false;
 	}
+	public void updateCounter(long newCounter, Instant lastUsed) {
+		this.counter = newCounter;
+		this.lastUsed = lastUsed;
+	}
 }

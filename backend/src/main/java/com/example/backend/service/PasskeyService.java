@@ -4,21 +4,37 @@ import com.example.backend.domain.Passkey;
 import com.example.backend.domain.User;
 import com.example.backend.dto.passkey.PasskeyResponse;
 import com.example.backend.exception.BusinessException;
+import com.example.backend.exception.PasskeyAuthenticationFailedException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.AccessToken;
+import com.example.backend.security.ClientContext;
+import com.example.backend.security.JwtService;
+import com.example.backend.security.RefreshTokenPair;
+import com.example.backend.security.RefreshTokenResult;
+import com.example.backend.service.auth.RefreshTokenService;
+import com.yubico.webauthn.AssertionRequest;
+import com.yubico.webauthn.AssertionResult;
+import com.yubico.webauthn.FinishAssertionOptions;
 import com.yubico.webauthn.FinishRegistrationOptions;
 import com.yubico.webauthn.RelyingParty;
+import com.yubico.webauthn.StartAssertionOptions;
 import com.yubico.webauthn.StartRegistrationOptions;
+import com.yubico.webauthn.data.AuthenticatorAssertionResponse;
 import com.yubico.webauthn.data.AuthenticatorAttestationResponse;
 import com.yubico.webauthn.data.AuthenticatorSelectionCriteria;
 import com.yubico.webauthn.data.ByteArray;
+import com.yubico.webauthn.data.ClientAssertionExtensionOutputs;
 import com.yubico.webauthn.data.ClientRegistrationExtensionOutputs;
 import com.yubico.webauthn.data.PublicKeyCredential;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
+import com.yubico.webauthn.data.PublicKeyCredentialRequestOptions;
 import com.yubico.webauthn.data.ResidentKeyRequirement;
 import com.yubico.webauthn.data.UserIdentity;
 import com.yubico.webauthn.data.UserVerificationRequirement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,36 +43,69 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Service
 public class PasskeyService {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(PasskeyService.class);
+	private static final Logger AUDIT_LOG = LoggerFactory.getLogger("AUDIT");
+
 	private final RelyingParty relyingParty;
 	private final UserRepository userRepository;
 	private final PasskeyRepository passkeyRepository;
+	private final JwtService jwtService;
+	private final RefreshTokenService refreshTokenService;
 	private final Clock clock;
 	private final ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingRegistrationOptions;
+	private final ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions;
+	private final Function<String, PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs>> assertionParser;
 
 	@Autowired
-	public PasskeyService(RelyingParty relyingParty, UserRepository userRepository, PasskeyRepository passkeyRepository) {
-		this(relyingParty, userRepository, passkeyRepository, Clock.systemUTC(), new ConcurrentHashMap<>());
+	public PasskeyService(
+			RelyingParty relyingParty,
+			UserRepository userRepository,
+			PasskeyRepository passkeyRepository,
+			JwtService jwtService,
+			RefreshTokenService refreshTokenService
+	) {
+		this(
+				relyingParty,
+				userRepository,
+				passkeyRepository,
+				jwtService,
+				refreshTokenService,
+				Clock.systemUTC(),
+				new ConcurrentHashMap<>(),
+				new ConcurrentHashMap<>(),
+				PasskeyService::parseAssertionCredential
+		);
 	}
 
 	PasskeyService(
 			RelyingParty relyingParty,
 			UserRepository userRepository,
 			PasskeyRepository passkeyRepository,
+			JwtService jwtService,
+			RefreshTokenService refreshTokenService,
 			Clock clock,
-			ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingRegistrationOptions
+			ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingRegistrationOptions,
+			ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions,
+			Function<String, PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs>> assertionParser
 	) {
 		this.relyingParty = relyingParty;
 		this.userRepository = userRepository;
 		this.passkeyRepository = passkeyRepository;
+		this.jwtService = jwtService;
+		this.refreshTokenService = refreshTokenService;
 		this.clock = clock;
 		this.pendingRegistrationOptions = pendingRegistrationOptions;
+		this.pendingAuthenticationOptions = pendingAuthenticationOptions;
+		this.assertionParser = assertionParser;
 	}
 
 	@Transactional
@@ -137,7 +186,7 @@ public class PasskeyService {
 						passkey.getLastUsed(),
 						passkey.isActive()
 				))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	@Transactional
@@ -154,6 +203,83 @@ public class PasskeyService {
 		passkeyRepository.save(passkey);
 	}
 
+	@Transactional
+	public PublicKeyCredentialRequestOptions startAuthentication(String email) {
+		String normalizedEmail = normalizeEmail(email);
+		findUserByEmail(normalizedEmail);
+
+		AssertionRequest assertionRequest = relyingParty.startAssertion(
+				StartAssertionOptions.builder()
+						.username(Optional.of(normalizedEmail))
+						.build()
+		);
+
+		pendingAuthenticationOptions.put(normalizedEmail, assertionRequest);
+		return assertionRequest.getPublicKeyCredentialRequestOptions();
+	}
+
+	@Transactional
+	public RefreshTokenResult finishAuthentication(String email, String credentialJson, ClientContext clientContext) {
+		String normalizedEmail = normalizeEmail(email);
+		User user = findUserByEmail(normalizedEmail);
+		AssertionRequest assertionRequest = pendingAuthenticationOptions.remove(normalizedEmail);
+		if (assertionRequest == null) {
+			throw new PasskeyAuthenticationFailedException();
+		}
+
+		try {
+			PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> credential =
+					assertionParser.apply(credentialJson);
+			AssertionResult result = relyingParty.finishAssertion(
+					FinishAssertionOptions.builder()
+							.request(assertionRequest)
+							.response(credential)
+							.build()
+			);
+
+			if (!result.isSuccess()) {
+				throw new PasskeyAuthenticationFailedException();
+			}
+
+			Passkey passkey = passkeyRepository.findByCredentialIdAndActiveTrue(credential.getId().getBase64Url())
+					.orElseThrow(PasskeyAuthenticationFailedException::new);
+
+			if (!passkey.getUser().getId().equals(user.getId())) {
+				throw new PasskeyAuthenticationFailedException();
+			}
+
+			validateAndUpdateCounter(passkey, result.getSignatureCount(), normalizedEmail, clientContext.ipAddress());
+
+			UUID sessionId = UUID.randomUUID();
+			AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
+			RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
+			return new RefreshTokenResult(accessToken, refreshToken.rawToken());
+		} catch (PasskeyAuthenticationFailedException exception) {
+			throw exception;
+		} catch (Exception exception) {
+			LOGGER.warn("Falha na validacao da credencial de passkey para usuario: {}", normalizedEmail);
+			throw new PasskeyAuthenticationFailedException();
+		}
+	}
+
+	private void validateAndUpdateCounter(Passkey passkey, long clientCounter, String email, String clientIp) {
+		long storedCounter = passkey.getCounter();
+		if (clientCounter <= storedCounter) {
+			AUDIT_LOG.warn(
+					"Possivel clonagem de autenticador detectada. user={}, credentialPrefix={}, storedCounter={}, clientCounter={}, ip={}",
+					email,
+					credentialPrefix(passkey.getCredentialId()),
+					storedCounter,
+					clientCounter,
+					clientIp
+			);
+			throw new PasskeyAuthenticationFailedException();
+		}
+
+		passkey.updateCounter(clientCounter, Instant.now(clock));
+		passkeyRepository.save(passkey);
+	}
+
 	private User findUserByEmail(String email) {
 		return userRepository.findByEmailIgnoreCase(email)
 				.orElseThrow(ResourceNotFoundException::new);
@@ -161,5 +287,23 @@ public class PasskeyService {
 
 	private String normalizeEmail(String email) {
 		return email.trim().toLowerCase(Locale.ROOT);
+	}
+
+	private static PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> parseAssertionCredential(
+			String credentialJson
+	) {
+		try {
+			return PublicKeyCredential.parseAssertionResponseJson(credentialJson);
+		} catch (Exception exception) {
+			throw new PasskeyAuthenticationFailedException();
+		}
+	}
+
+	private String credentialPrefix(String credentialId) {
+		if (credentialId == null || credentialId.length() <= 8) {
+			return "[redacted]";
+		}
+
+		return credentialId.substring(0, 8) + "...";
 	}
 }

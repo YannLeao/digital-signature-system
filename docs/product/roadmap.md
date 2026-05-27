@@ -21,7 +21,7 @@ Detalhes completos de cada card devem ficar nos arquivos específicos de épicos
 ## EPIC-02 — Passkeys / WebAuthn
 
 - [x] PASSKEY-01 — Registro de credencial
-- [ ] PASSKEY-02 — Autenticação e validação de counter
+- [x] PASSKEY-02 — Autenticação e validação de counter
 - [ ] PASSKEY-03 — UI de registro e autenticação com passkey
 
 ## EPIC-03 — TOTP / 2FA

@@ -4,6 +4,8 @@ import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.RefreshTokenRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.AccessToken;
+import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
@@ -16,6 +18,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -94,6 +99,31 @@ class PasskeySecurityTests {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{"email":"user@example.com","credential":"credential-json","deviceName":"Notebook"}
+								"""))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void permitsVersionedPasskeyAuthenticationStartWithoutAuthenticationOrCsrfToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/passkey/auth/start")
+						.servletPath("/api/v1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com"}
+								"""))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void permitsVersionedPasskeyAuthenticationFinishWithoutAuthenticationOrCsrfToken() throws Exception {
+		when(passkeyService.finishAuthentication(eq("user@example.com"), eq("credential-json"), any()))
+				.thenReturn(new RefreshTokenResult(new AccessToken("jwt-token", "Bearer", 900), "refresh-token"));
+
+		mockMvc.perform(post("/api/v1/auth/passkey/auth/finish")
+						.servletPath("/api/v1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"user@example.com","credential":"credential-json"}
 								"""))
 				.andExpect(status().isOk());
 	}
