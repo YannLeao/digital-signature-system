@@ -1,9 +1,13 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.auth.LoginResponse;
+import com.example.backend.dto.passkey.PasskeyAuthenticationFinishRequest;
 import com.example.backend.dto.passkey.PasskeyFinishRequest;
 import com.example.backend.dto.passkey.PasskeyResponse;
 import com.example.backend.dto.passkey.PasskeyStartRequest;
+import com.example.backend.security.ClientContext;
+import com.example.backend.security.RefreshTokenCookieFactory;
+import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.PasskeyService;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
 import com.yubico.webauthn.data.PublicKeyCredentialRequestOptions;
@@ -11,6 +15,7 @@ import com.yubico.webauthn.data.PublicKeyCredentialRequestOptions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +34,7 @@ import java.util.List;
 public class PasskeyController {
 
 	private final PasskeyService passkeyService;
+	private final RefreshTokenCookieFactory refreshTokenCookieFactory;
 
 	@PostMapping("/register/start")
 	public ResponseEntity<PublicKeyCredentialCreationOptions> startRegistration(
@@ -70,14 +76,21 @@ public class PasskeyController {
 	}
 
 	@PostMapping("/auth/finish")
-    public ResponseEntity<LoginResponse> finishAuthentication(
-            @Valid @RequestBody PasskeyFinishRequest request,
+	public ResponseEntity<LoginResponse> finishAuthentication(
+			@Valid @RequestBody PasskeyAuthenticationFinishRequest request,
 			HttpServletRequest httpRequest) {
-        LoginResponse response = passkeyService.finishAuthentication(
-            request.email(), 
-            request.credential(),
-			httpRequest.getRemoteAddr()
-        );
-        return ResponseEntity.ok(response);
-    }
+		RefreshTokenResult result = passkeyService.finishAuthentication(
+				request.email(),
+				request.credential(),
+				new ClientContext(httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"))
+		);
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(result.refreshToken()).toString())
+				.body(new LoginResponse(
+						result.accessToken().token(),
+						result.accessToken().tokenType(),
+						result.accessToken().expiresIn()
+				));
+	}
 }
