@@ -1,10 +1,14 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.passkey.PasskeyFinishRequest;
 import com.example.backend.dto.passkey.PasskeyResponse;
 import com.example.backend.dto.passkey.PasskeyStartRequest;
 import com.example.backend.service.PasskeyService;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
+import com.yubico.webauthn.data.PublicKeyCredentialRequestOptions;
+
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -57,4 +61,23 @@ public class PasskeyController {
 		passkeyService.deletePasskey(id, email);
 		return ResponseEntity.noContent().build();
 	}
+
+	@PostMapping("/auth/start")
+	public ResponseEntity<PublicKeyCredentialRequestOptions> startAuthentication(
+			@Valid @RequestBody PasskeyStartRequest request) {
+		PublicKeyCredentialRequestOptions options = passkeyService.startAuthentication(request.email());
+		return ResponseEntity.ok(options);
+	}
+
+	@PostMapping("/auth/finish")
+    public ResponseEntity<LoginResponse> finishAuthentication(
+            @Valid @RequestBody PasskeyFinishRequest request,
+			HttpServletRequest httpRequest) {
+        LoginResponse response = passkeyService.finishAuthentication(
+            request.email(), 
+            request.credential(),
+			httpRequest.getRemoteAddr()
+        );
+        return ResponseEntity.ok(response);
+    }
 }

@@ -5,6 +5,7 @@ import com.example.backend.exception.BusinessException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.UserRepository;
+import com.yubico.webauthn.AssertionRequest;
 import com.yubico.webauthn.RelyingParty;
 import com.yubico.webauthn.StartRegistrationOptions;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
@@ -35,12 +36,15 @@ class PasskeyServiceTests {
 	private final UserRepository userRepository = mock(UserRepository.class);
 	private final PasskeyRepository passkeyRepository = mock(PasskeyRepository.class);
 	private final ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingOptions = new ConcurrentHashMap<>();
+	private final ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions = new ConcurrentHashMap<>();
+
 	private final PasskeyService service = new PasskeyService(
 			relyingParty,
 			userRepository,
 			passkeyRepository,
 			CLOCK,
-			pendingOptions
+			pendingOptions,
+			pendingAuthenticationOptions
 	);
 
 	@Test
