@@ -5,6 +5,9 @@ import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.LogoutResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
+import com.example.backend.dto.auth.TotpSetupResponse;
+import com.example.backend.dto.auth.TotpVerifyRequest;
+import com.example.backend.dto.auth.TotpVerifyResponse;
 import com.example.backend.domain.User;
 import com.example.backend.exception.InvalidAccessTokenException;
 import com.example.backend.exception.InvalidRefreshTokenException;
@@ -17,6 +20,8 @@ import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.RefreshTokenService;
+import com.example.backend.service.auth.TotpSetupService;
+import com.example.backend.service.auth.TotpVerifyService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
 import jakarta.servlet.http.Cookie;
@@ -40,89 +45,127 @@ import java.util.UUID;
 @RequestMapping("/auth")
 public class AuthController {
 
-	private final UserRegistrationService userRegistrationService;
-	private final UserLoginService userLoginService;
-	private final LoginRateLimiter loginRateLimiter;
-	private final JwtService jwtService;
-	private final RefreshTokenService refreshTokenService;
-	private final RefreshTokenCookieFactory refreshTokenCookieFactory;
-	private final JwtLogoutService jwtLogoutService;
+    private final UserRegistrationService userRegistrationService;
+    private final UserLoginService userLoginService;
+    private final LoginRateLimiter loginRateLimiter;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenCookieFactory refreshTokenCookieFactory;
+    private final JwtLogoutService jwtLogoutService;
+    private final TotpSetupService totpSetupService;
+    private final TotpVerifyService totpVerifyService;
 
-	public AuthController(
-			UserRegistrationService userRegistrationService,
-			UserLoginService userLoginService,
-			LoginRateLimiter loginRateLimiter,
-			JwtService jwtService,
-			RefreshTokenService refreshTokenService,
-			RefreshTokenCookieFactory refreshTokenCookieFactory,
-			JwtLogoutService jwtLogoutService
-	) {
-		this.userRegistrationService = userRegistrationService;
-		this.userLoginService = userLoginService;
-		this.loginRateLimiter = loginRateLimiter;
-		this.jwtService = jwtService;
-		this.refreshTokenService = refreshTokenService;
-		this.refreshTokenCookieFactory = refreshTokenCookieFactory;
-		this.jwtLogoutService = jwtLogoutService;
-	}
+    public AuthController(
+            UserRegistrationService userRegistrationService,
+            UserLoginService userLoginService,
+            LoginRateLimiter loginRateLimiter,
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService,
+            RefreshTokenCookieFactory refreshTokenCookieFactory,
+            JwtLogoutService jwtLogoutService,
+            TotpSetupService totpSetupService,
+            TotpVerifyService totpVerifyService
+    ) {
+        this.userRegistrationService = userRegistrationService;
+        this.userLoginService = userLoginService;
+        this.loginRateLimiter = loginRateLimiter;
+        this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
+        this.refreshTokenCookieFactory = refreshTokenCookieFactory;
+        this.jwtLogoutService = jwtLogoutService;
+        this.totpSetupService = totpSetupService;
+        this.totpVerifyService = totpVerifyService;
+    }
 
-	@PostMapping("/register")
-	@ResponseStatus(HttpStatus.CREATED)
-	RegisterUserResponse register(@Valid @RequestBody RegisterUserRequest request) {
-		userRegistrationService.register(request);
-		return new RegisterUserResponse("Usuario registrado com sucesso.");
-	}
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    RegisterUserResponse register(@Valid @RequestBody RegisterUserRequest request) {
+        userRegistrationService.register(request);
+        return new RegisterUserResponse("Usuario registrado com sucesso.");
+    }
 
-	@PostMapping("/login")
-	ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-		loginRateLimiter.consume(servletRequest.getRemoteAddr());
-		User user = userLoginService.login(request);
-		ClientContext clientContext = clientContext(servletRequest);
-		UUID sessionId = UUID.randomUUID();
-		AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
-		RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
-		return accessTokenResponse(accessToken, refreshToken.rawToken());
-	}
+    @PostMapping("/login")
+    ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        loginRateLimiter.consume(servletRequest.getRemoteAddr());
+        User user = userLoginService.login(request);
+        ClientContext clientContext = clientContext(servletRequest);
 
-	@PostMapping("/refresh")
-	ResponseEntity<LoginResponse> refresh(HttpServletRequest servletRequest) {
-		RefreshTokenResult result = refreshTokenService.rotate(refreshTokenFromCookie(servletRequest), clientContext(servletRequest));
-		return accessTokenResponse(result.accessToken(), result.refreshToken());
-	}
+        // Se 2FA está ativo, retorna token de meia-sessão — JWT completo nunca é emitido antes do TOTP
+        if (user.isTotpEnabled()) {
+            AccessToken halfSession = jwtService.issueHalfSessionToken(user, clientContext);
+            return ResponseEntity.ok(
+                    new LoginResponse(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn())
+            );
+        }
 
-	@PostMapping("/logout")
-	ResponseEntity<LogoutResponse> logout(@AuthenticationPrincipal Jwt jwt) {
-		if (jwt == null) {
-			throw new InvalidAccessTokenException();
-		}
+        UUID sessionId = UUID.randomUUID();
+        AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
+        RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
+        return accessTokenResponse(accessToken, refreshToken.rawToken());
+    }
 
-		jwtLogoutService.logout(jwt);
-		return ResponseEntity.ok()
-				.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
-				.body(new LogoutResponse("Logout realizado com sucesso."));
-	}
+    @PostMapping("/2fa/setup")
+    ResponseEntity<TotpSetupResponse> setup2fa(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            throw new InvalidAccessTokenException();
+        }
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(totpSetupService.setup(userId));
+    }
 
-	private ClientContext clientContext(HttpServletRequest request) {
-		return new ClientContext(request.getRemoteAddr(), request.getHeader("User-Agent"));
-	}
+    @PostMapping("/2fa/verify")
+    ResponseEntity<TotpVerifyResponse> verify2fa(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody TotpVerifyRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        if (jwt == null || !"2fa:verify".equals(jwt.getClaimAsString("scope"))) {
+            throw new InvalidAccessTokenException();
+        }
+        UUID userId = UUID.fromString(jwt.getSubject());
+        TotpVerifyResponse response = totpVerifyService.verify(userId, request.code(), clientContext(servletRequest));
+        jwtLogoutService.logout(jwt);
+        return ResponseEntity.ok(response);
+    }
 
-	private ResponseEntity<LoginResponse> accessTokenResponse(AccessToken accessToken, String refreshToken) {
-		return ResponseEntity.ok()
-				.header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(refreshToken).toString())
-				.body(new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn()));
-	}
+    @PostMapping("/refresh")
+    ResponseEntity<?> refresh(HttpServletRequest servletRequest) {
+        RefreshTokenResult result = refreshTokenService.rotate(
+                refreshTokenFromCookie(servletRequest), clientContext(servletRequest));
+        return accessTokenResponse(result.accessToken(), result.refreshToken());
+    }
 
-	private String refreshTokenFromCookie(HttpServletRequest request) {
-		Cookie[] cookies = request.getCookies();
-		if (cookies == null) {
-			throw new InvalidRefreshTokenException();
-		}
+    @PostMapping("/logout")
+    ResponseEntity<?> logout(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            throw new InvalidAccessTokenException();
+        }
+        jwtLogoutService.logout(jwt);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
+                .body(new LogoutResponse("Logout realizado com sucesso."));
+    }
 
-		return Arrays.stream(cookies)
-				.filter(cookie -> refreshTokenCookieFactory.cookieName().equals(cookie.getName()))
-				.map(Cookie::getValue)
-				.filter(value -> !value.isBlank())
-				.findFirst()
-				.orElseThrow(InvalidRefreshTokenException::new);
-	}
+    private ClientContext clientContext(HttpServletRequest request) {
+        return new ClientContext(request.getRemoteAddr(), request.getHeader("User-Agent"));
+    }
+
+    private ResponseEntity<?> accessTokenResponse(AccessToken accessToken, String refreshToken) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(refreshToken).toString())
+                .body(new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn()));
+    }
+
+    private String refreshTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            throw new InvalidRefreshTokenException();
+        }
+        return Arrays.stream(cookies)
+                .filter(cookie -> refreshTokenCookieFactory.cookieName().equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .filter(value -> !value.isBlank())
+                .findFirst()
+                .orElseThrow(InvalidRefreshTokenException::new);
+    }
 }
