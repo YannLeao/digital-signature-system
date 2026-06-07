@@ -1,7 +1,10 @@
 package com.example.backend.exception;
 
-public class InvalidTotpException extends RuntimeException {
-    public InvalidTotpException(String message) {
-        super(message);
-    }
+import org.springframework.http.HttpStatus;
+
+public class InvalidTotpException extends ApiException {
+
+	public InvalidTotpException() {
+		super(ApiErrorCode.AUTH_004, HttpStatus.UNAUTHORIZED);
+	}
 }

@@ -56,6 +56,7 @@ class JwtServiceTests {
 		assertThat(jwt.getIssuedAt()).isEqualTo(NOW);
 		assertThat(jwt.getExpiresAt()).isEqualTo(NOW.plusSeconds(900));
 		assertThat(jwt.getClaimAsString("session_id")).isNotBlank();
+		assertThat(jwt.getClaimAsString("token_use")).isEqualTo("access");
 		assertThat(jwt.getClaimAsString("ip")).isEqualTo("631f08140b24b7274d12df3c37a1a80ce5876dafd7007d772e0114fddf88b682");
 		assertThat(jwt.getClaimAsString("ua_hash")).isEqualTo("ea2ca7aa052e3b590ab76bf113f8b50894d5c697081fc789f41e6551b9b2df50");
 		assertThat(jwt.getClaimAsString("ip")).doesNotContain(CLIENT_CONTEXT.ipAddress());
@@ -121,6 +122,26 @@ class JwtServiceTests {
 		assertThatThrownBy(() -> new JwtValidator(token -> jwtWithoutClaim(jwt, "ua_hash")).validate(accessToken.token()))
 				.isInstanceOf(BadJwtException.class)
 				.hasMessage("JWT missing required claim: ua_hash");
+	}
+
+	@Test
+	void issuesHalfSessionTokenThatIsOnlyValidForTotpChallenge() {
+		KeyPair keyPair = keyPair();
+		JwtService service = jwtService(keyPair, Clock.fixed(NOW, ZoneOffset.UTC));
+		JwtValidator validator = jwtValidator(keyPair);
+		User user = user();
+
+		AccessToken token = service.issueHalfSessionToken(user, CLIENT_CONTEXT);
+		Jwt jwt = validator.validateTotpChallengeToken(token.token());
+
+		assertThat(token.expiresIn()).isEqualTo(300);
+		assertThat(jwt.getSubject()).isEqualTo(user.getId().toString());
+		assertThat(jwt.getClaimAsString("token_use")).isEqualTo("totp_challenge");
+		assertThat(jwt.getClaimAsString("scope")).isEqualTo("2fa:verify");
+		assertThat(jwt.getClaimAsString("session_id")).isNotBlank();
+		assertThatThrownBy(() -> validator.validateAccessToken(token.token()))
+				.isInstanceOf(BadJwtException.class)
+				.hasMessage("JWT has invalid token_use.");
 	}
 
 	private JwtService jwtService(KeyPair keyPair, Clock clock) {

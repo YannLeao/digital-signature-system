@@ -3,6 +3,7 @@ package com.example.backend;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.RefreshTokenRepository;
+import com.example.backend.repository.TotpBackupCodeRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.UserRegistrationService;
@@ -60,6 +61,10 @@ class BackendApplicationTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private JwtDenylistRepository jwtDenylistRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpBackupCodeRepository totpBackupCodeRepository;
 
 	@Test
 	void contextLoads() {

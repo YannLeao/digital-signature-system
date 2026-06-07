@@ -9,6 +9,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class TotpEncryptionService {
@@ -19,10 +20,10 @@ public class TotpEncryptionService {
 
     private final SecretKey secretKey;
 
-    public TotpEncryptionService(@Value("${TOTP_ENCRYPTION_KEY}") String base64Key) {
+    public TotpEncryptionService(@Value("${TOTP_ENCRYPTION_KEY_BASE64}") String base64Key) {
         byte[] keyBytes = Base64.getDecoder().decode(base64Key);
         if (keyBytes.length != 32) {
-            throw new IllegalArgumentException("TOTP_ENCRYPTION_KEY deve ter 32 bytes (256 bits) em Base64.");
+            throw new IllegalArgumentException("TOTP_ENCRYPTION_KEY_BASE64 deve ter 32 bytes (256 bits) em Base64.");
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
     }
@@ -33,7 +34,7 @@ public class TotpEncryptionService {
             new SecureRandom().nextBytes(iv);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-            byte[] ciphertext = cipher.doFinal(plaintext.getBytes());
+            byte[] ciphertext = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
             byte[] combined = new byte[iv.length + ciphertext.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
@@ -52,7 +53,7 @@ public class TotpEncryptionService {
             System.arraycopy(combined, iv.length, ciphertext, 0, ciphertext.length);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-            return new String(cipher.doFinal(ciphertext));
+            return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("Falha ao descriptografar segredo TOTP.", e);
         }

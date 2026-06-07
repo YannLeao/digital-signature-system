@@ -7,6 +7,8 @@ public enum ApiErrorCode {
 	AUTH_001("Credenciais invalidas."),
 	AUTH_002("Acesso nao autorizado."),
 	AUTH_003("Token invalido ou revogado."),
+	AUTH_004("Codigo de verificacao invalido."),
+	AUTH_005("Verificacao temporariamente bloqueada."),
 	SEC_001("Requisicao bloqueada por politica de seguranca."),
 	DOC_001("Documento invalido."),
 	SYS_001("Erro interno inesperado."),

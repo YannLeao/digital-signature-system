@@ -3,6 +3,7 @@ package com.example.backend.controller.auth;
 import com.example.backend.domain.User;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.PasskeyRepository;
+import com.example.backend.repository.TotpBackupCodeRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.JwtLogoutService;
@@ -93,6 +94,10 @@ class AuthSecurityTests {
 	@SuppressWarnings("unused")
 	private PasskeyRepository passkeyRepository;
 
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpBackupCodeRepository totpBackupCodeRepository;
+
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
@@ -153,7 +158,7 @@ class AuthSecurityTests {
 	@Test
 	void protectsVersionedLogoutWithBearerTokenAndClearsCookie() throws Exception {
 		Jwt jwt = jwt();
-		when(jwtValidator.validate("access-token")).thenReturn(jwt);
+		when(jwtValidator.validateAccessToken("access-token")).thenReturn(jwt);
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.servletPath("/api/v1")
@@ -176,6 +181,7 @@ class AuthSecurityTests {
 				.issuedAt(issuedAt)
 				.expiresAt(issuedAt.plusSeconds(900))
 				.claim("session_id", "33333333-3333-3333-3333-333333333333")
+				.claim("token_use", "access")
 				.claim("ip", "ip-hash")
 				.claim("ua_hash", "ua-hash")
 				.build();

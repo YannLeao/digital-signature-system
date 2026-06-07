@@ -15,6 +15,7 @@ import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
 import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
@@ -52,6 +53,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCookieFactory refreshTokenCookieFactory;
     private final JwtLogoutService jwtLogoutService;
+    private final JwtValidator jwtValidator;
     private final TotpSetupService totpSetupService;
     private final TotpVerifyService totpVerifyService;
 
@@ -63,6 +65,7 @@ public class AuthController {
             RefreshTokenService refreshTokenService,
             RefreshTokenCookieFactory refreshTokenCookieFactory,
             JwtLogoutService jwtLogoutService,
+            JwtValidator jwtValidator,
             TotpSetupService totpSetupService,
             TotpVerifyService totpVerifyService
     ) {
@@ -73,6 +76,7 @@ public class AuthController {
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenCookieFactory = refreshTokenCookieFactory;
         this.jwtLogoutService = jwtLogoutService;
+        this.jwtValidator = jwtValidator;
         this.totpSetupService = totpSetupService;
         this.totpVerifyService = totpVerifyService;
     }
@@ -94,7 +98,7 @@ public class AuthController {
         if (user.isTotpEnabled()) {
             AccessToken halfSession = jwtService.issueHalfSessionToken(user, clientContext);
             return ResponseEntity.ok(
-                    new LoginResponse(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn())
+                    LoginResponse.requiresTwoFactor(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn())
             );
         }
 
@@ -119,13 +123,20 @@ public class AuthController {
             @Valid @RequestBody TotpVerifyRequest request,
             HttpServletRequest servletRequest
     ) {
-        if (jwt == null || !"2fa:verify".equals(jwt.getClaimAsString("scope"))) {
+        if (jwt == null) {
             throw new InvalidAccessTokenException();
         }
-        UUID userId = UUID.fromString(jwt.getSubject());
-        TotpVerifyResponse response = totpVerifyService.verify(userId, request.code(), clientContext(servletRequest));
+        Jwt halfSession = jwtValidator.validateTotpChallengeToken(jwt.getTokenValue());
+        UUID userId = UUID.fromString(halfSession.getSubject());
+        RefreshTokenResult result = totpVerifyService.verify(userId, request.code(), clientContext(servletRequest));
         jwtLogoutService.logout(jwt);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(result.refreshToken()).toString())
+                .body(new TotpVerifyResponse(
+                        result.accessToken().token(),
+                        result.accessToken().tokenType(),
+                        result.accessToken().expiresIn()
+                ));
     }
 
     @PostMapping("/refresh")
