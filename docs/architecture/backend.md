@@ -22,23 +22,27 @@ backend/src/main/java/.../
 ├── controller/
 ├── domain/
 ├── dto/
+├── event/
 ├── exception/
+├── listener/
+├── mapper/
 ├── repository/
+├── security/
 ├── service/
-└── mapper/
+└── validation/
 ```
 
 ## Responsabilidades
 
 ### controller
 
-Recebe requisições HTTP, valida entrada básica e delega para services.
+Recebe requisicoes HTTP, valida entrada basica e delega para services.
 
-Não deve conter regra de negócio.
+Nao deve conter regra de negocio.
 
 ### service
 
-Contém regras de negócio e orquestração de casos de uso.
+Contem regras de negocio e orquestracao de casos de uso.
 
 ### repository
 
@@ -46,48 +50,68 @@ Acesso ao banco usando Spring Data JPA.
 
 ### domain
 
-Entidades e modelos centrais do domínio.
+Entidades e modelos centrais do dominio.
 
 ### dto
 
-Objetos de entrada e saída da API.
+Objetos de entrada e saida da API.
 
-DTOs não devem ser entidades JPA.
+DTOs nao devem ser entidades JPA.
+
+### event
+
+Eventos de dominio/aplicacao para sinalizar acontecimentos sensiveis sem acoplar diretamente o caso de uso ao efeito colateral.
+
+Eventos nao devem carregar segredos, tokens, chaves criptograficas ou payloads sensiveis desnecessarios.
+
+### listener
+
+Listeners de eventos internos, como notificacoes por e-mail.
+
+Falhas em listeners nao devem quebrar o fluxo principal de autenticacao quando o evento for apenas notificacao.
 
 ### config
 
-Configurações de framework, segurança, CORS, beans e propriedades.
+Configuracoes de framework, seguranca, CORS, beans e propriedades.
 
 ### exception
 
-Exceções customizadas e tratamento global de erros.
+Excecoes customizadas e tratamento global de erros.
 
 ### mapper
 
-Conversões entre entidades, DTOs e modelos internos.
+Conversoes entre entidades, DTOs e modelos internos.
+
+### security
+
+Componentes de seguranca, tokens, criptografia, cookies e filtros de autenticacao.
+
+### validation
+
+Validacoes reutilizaveis de entrada e regras auxiliares de validacao.
 
 ## Regras
 
 - Usar constructor injection.
 - Evitar field injection com `@Autowired`.
-- Não acessar repository diretamente em controllers.
-- Não expor entidades JPA como resposta da API.
-- Não hardcodar configurações sensíveis.
-- Usar variáveis de ambiente para configurações externas.
-- Usar Flyway para evolução de schema.
-- Não alterar banco manualmente fora de migration.
+- Nao acessar repository diretamente em controllers.
+- Nao expor entidades JPA como resposta da API.
+- Nao hardcodar configuracoes sensiveis.
+- Usar variaveis de ambiente para configuracoes externas.
+- Usar Flyway para evolucao de schema.
+- Nao alterar banco manualmente fora de migration.
 
-## Variáveis de ambiente
+## Variaveis de ambiente
 
-Variáveis obrigatórias devem ser validadas no boot da aplicação.
+Variaveis obrigatorias devem ser validadas no boot da aplicacao.
 
-A aplicação deve recusar iniciar se uma variável obrigatória estiver ausente.
+A aplicacao deve recusar iniciar se uma variavel obrigatoria estiver ausente.
 
 ## Banco de dados
 
 - PostgreSQL como banco principal.
 - Flyway para versionamento de schema.
-- Migrations devem seguir o padrão:
+- Migrations devem seguir o padrao:
 
 ```text
 V{numero}__{descricao}.sql
