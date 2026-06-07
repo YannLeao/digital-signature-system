@@ -5,8 +5,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { AuthCard } from '../../components/auth/AuthCard'
 import { AuthFormField } from '../../components/auth/AuthFormField'
-import { getAuthErrorMessage, loginUser } from '../../services/authService'
+import { useAuth } from '../../hooks/useAuth'
 import { loginSchema, type LoginFormData } from '../../schemas/authSchemas'
+import { getAuthErrorMessage } from '../../services/authService'
 
 type LoginState = {
   authMessage?: string
@@ -16,6 +17,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LoginState | null
+  const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
   const {
     formState: { errors, isSubmitting },
@@ -33,7 +35,7 @@ export function LoginPage() {
     setApiError(null)
 
     try {
-      await loginUser(data)
+      await login(data)
       navigate('/', {
         replace: true,
         state: { authMessage: 'Login realizado com sucesso.' },

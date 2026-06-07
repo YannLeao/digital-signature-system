@@ -10,13 +10,15 @@ import {
   ensureCsrfToken,
   refreshCsrfToken,
 } from './csrfService'
+import { refreshResponseSchema } from '../schemas/apiSchemas'
+import { isApiAxiosError } from '../utils/parseApiError'
 import type { ApiErrorResponse } from '../types/api'
 import type { RefreshResponse } from '../types/auth'
 import {
   clearAccessToken,
   getAccessToken,
   setAccessToken,
-} from '../utils/authToken'
+} from '../utils/authTokenStore'
 import { env } from '../utils/env'
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
@@ -107,8 +109,15 @@ async function refreshAccessToken(): Promise<string | null> {
         { _skipAuthRefresh: true } as RetriableRequestConfig,
       )
       .then((response) => {
-        setAccessToken(response.data.accessToken)
-        return response.data.accessToken
+        const parsedResponse = parseRefreshResponse(response.data)
+
+        if (!parsedResponse) {
+          clearAccessToken()
+          return null
+        }
+
+        setAccessToken(parsedResponse.accessToken)
+        return parsedResponse.accessToken
       })
       .catch(() => {
         clearAccessToken()
@@ -141,8 +150,22 @@ function shouldRetryCsrf(config: RetriableRequestConfig): boolean {
   return !config._retryCsrf && mutatingMethods.has(method)
 }
 
+function parseRefreshResponse(data: unknown): RefreshResponse | null {
+  const parsedResponse = refreshResponseSchema.safeParse(data)
+
+  if (!parsedResponse.success) {
+    return null
+  }
+
+  return parsedResponse.data
+}
+
 function isCsrfError(error: AxiosError<ApiErrorResponse>): boolean {
-  return error.response?.status === 403 && error.response.data?.code === 'SEC_001'
+  return (
+    isApiAxiosError(error) &&
+    error.response?.status === 403 &&
+    error.response.data.code === 'SEC_001'
+  )
 }
 
 function redirectToLogin(): void {
