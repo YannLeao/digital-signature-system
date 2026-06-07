@@ -140,7 +140,7 @@ class AuthSecurityTests {
 	}
 
 	@Test
-	void permitsVersionedRefreshWithoutAuthenticationOrCsrfToken() throws Exception {
+	void permitsVersionedRefreshWithValidCsrfToken() throws Exception {
 		when(refreshTokenService.rotate(any(), any()))
 				.thenReturn(new com.example.backend.security.RefreshTokenResult(
 						new AccessToken("new-jwt-token", "Bearer", 900),
@@ -149,10 +149,21 @@ class AuthSecurityTests {
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
 						.servletPath("/api/v1")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token"))
 						.cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh-token")))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.accessToken").value("new-jwt-token"))
 				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=new-refresh-token")));
+	}
+
+	@Test
+	void rejectsVersionedRefreshWithoutCsrfToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.servletPath("/api/v1")
+						.cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh-token")))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("SEC_001"));
 	}
 
 	@Test
@@ -162,7 +173,9 @@ class AuthSecurityTests {
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.servletPath("/api/v1")
-						.header("Authorization", "Bearer access-token"))
+						.header("Authorization", "Bearer access-token")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token")))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Logout realizado com sucesso."))
 				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=")))

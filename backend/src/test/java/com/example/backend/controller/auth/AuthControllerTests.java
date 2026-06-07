@@ -10,6 +10,7 @@ import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.RateLimitExceededException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
+import com.example.backend.security.CsrfTokenService;
 import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.JwtValidator;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -59,6 +61,7 @@ class AuthControllerTests {
     private JwtService jwtService;
     private RefreshTokenService refreshTokenService;
     private RefreshTokenCookieFactory refreshTokenCookieFactory;
+    private CsrfTokenService csrfTokenService;
     private JwtLogoutService jwtLogoutService;
     private JwtValidator jwtValidator;
     private TotpSetupService totpSetupService;
@@ -73,6 +76,7 @@ class AuthControllerTests {
         jwtService = mock(JwtService.class);
         refreshTokenService = mock(RefreshTokenService.class);
         refreshTokenCookieFactory = mock(RefreshTokenCookieFactory.class);
+        csrfTokenService = mock(CsrfTokenService.class);
         jwtLogoutService = mock(JwtLogoutService.class);
         jwtValidator = mock(JwtValidator.class);
         totpSetupService = mock(TotpSetupService.class);
@@ -93,6 +97,20 @@ class AuthControllerTests {
                 .path("/api/v1/auth/refresh")
                 .maxAge(0)
                 .build());
+        when(csrfTokenService.generateToken()).thenReturn("csrf-token");
+        when(csrfTokenService.createCookie("csrf-token")).thenReturn(ResponseCookie.from("XSRF-TOKEN", "csrf-token")
+                .httpOnly(false)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/")
+                .build());
+        when(csrfTokenService.clearCookie()).thenReturn(ResponseCookie.from("XSRF-TOKEN", "")
+                .httpOnly(false)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(0)
+                .build());
 
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -104,6 +122,7 @@ class AuthControllerTests {
                         jwtService,
                         refreshTokenService,
                         refreshTokenCookieFactory,
+                        csrfTokenService,
                         jwtLogoutService,
                         jwtValidator,
                         totpSetupService,
@@ -281,11 +300,22 @@ class AuthControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("half-session-token"))
                 .andExpect(jsonPath("$.requiresTwoFactor").value(true))
-                .andExpect(header().doesNotExist("Set-Cookie"));
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("XSRF-TOKEN=csrf-token")));
 
         verify(jwtService).issueHalfSessionToken(user, new ClientContext("203.0.113.10", "JUnit/5"));
         verify(jwtService, never()).issueAccessToken(any(), any(), any());
         verify(refreshTokenService, never()).issueForLogin(any(), any(), any());
+    }
+
+    @Test
+    void csrfEndpointIssuesReadableCookie() throws Exception {
+        mockMvc.perform(get("/auth/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("CSRF token issued."))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("XSRF-TOKEN=csrf-token")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("SameSite=Strict")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Path=/")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("HttpOnly"))));
     }
 
     @Test

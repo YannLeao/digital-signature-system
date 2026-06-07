@@ -1,5 +1,6 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.dto.auth.CsrfTokenResponse;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.LogoutResponse;
@@ -13,6 +14,7 @@ import com.example.backend.exception.InvalidAccessTokenException;
 import com.example.backend.exception.InvalidRefreshTokenException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
+import com.example.backend.security.CsrfTokenService;
 import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.JwtValidator;
@@ -34,6 +36,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -52,6 +55,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCookieFactory refreshTokenCookieFactory;
+    private final CsrfTokenService csrfTokenService;
     private final JwtLogoutService jwtLogoutService;
     private final JwtValidator jwtValidator;
     private final TotpSetupService totpSetupService;
@@ -64,6 +68,7 @@ public class AuthController {
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             RefreshTokenCookieFactory refreshTokenCookieFactory,
+            CsrfTokenService csrfTokenService,
             JwtLogoutService jwtLogoutService,
             JwtValidator jwtValidator,
             TotpSetupService totpSetupService,
@@ -75,6 +80,7 @@ public class AuthController {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenCookieFactory = refreshTokenCookieFactory;
+        this.csrfTokenService = csrfTokenService;
         this.jwtLogoutService = jwtLogoutService;
         this.jwtValidator = jwtValidator;
         this.totpSetupService = totpSetupService;
@@ -94,18 +100,24 @@ public class AuthController {
         User user = userLoginService.login(request);
         ClientContext clientContext = clientContext(servletRequest);
 
-        // Se 2FA está ativo, retorna token de meia-sessão — JWT completo nunca é emitido antes do TOTP
         if (user.isTotpEnabled()) {
             AccessToken halfSession = jwtService.issueHalfSessionToken(user, clientContext);
-            return ResponseEntity.ok(
-                    LoginResponse.requiresTwoFactor(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn())
-            );
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, csrfCookie().toString())
+                    .body(LoginResponse.requiresTwoFactor(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn()));
         }
 
         UUID sessionId = UUID.randomUUID();
         AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
         RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
         return accessTokenResponse(accessToken, refreshToken.rawToken());
+    }
+
+    @GetMapping("/csrf")
+    ResponseEntity<CsrfTokenResponse> csrf() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, csrfCookie().toString())
+                .body(new CsrfTokenResponse("CSRF token issued."));
     }
 
     @PostMapping("/2fa/setup")
@@ -131,7 +143,11 @@ public class AuthController {
         RefreshTokenResult result = totpVerifyService.verify(userId, request.code(), clientContext(servletRequest));
         jwtLogoutService.logout(jwt);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(result.refreshToken()).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.create(result.refreshToken()).toString(),
+                        csrfCookie().toString()
+                )
                 .body(new TotpVerifyResponse(
                         result.accessToken().token(),
                         result.accessToken().tokenType(),
@@ -153,7 +169,11 @@ public class AuthController {
         }
         jwtLogoutService.logout(jwt);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.clear().toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.clear().toString(),
+                        csrfTokenService.clearCookie().toString()
+                )
                 .body(new LogoutResponse("Logout realizado com sucesso."));
     }
 
@@ -163,8 +183,16 @@ public class AuthController {
 
     private ResponseEntity<?> accessTokenResponse(AccessToken accessToken, String refreshToken) {
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieFactory.create(refreshToken).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieFactory.create(refreshToken).toString(),
+                        csrfCookie().toString()
+                )
                 .body(new LoginResponse(accessToken.token(), accessToken.tokenType(), accessToken.expiresIn()));
+    }
+
+    private org.springframework.http.ResponseCookie csrfCookie() {
+        return csrfTokenService.createCookie(csrfTokenService.generateToken());
     }
 
     private String refreshTokenFromCookie(HttpServletRequest request) {

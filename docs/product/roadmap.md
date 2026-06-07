@@ -62,6 +62,6 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 
 ## EPIC-09 - CSRF e Seguranca Complementar
 
-- [ ] CSRF-01 - Protecao CSRF
+- [x] CSRF-01 - Protecao CSRF
 - [ ] CSRF-02 - Integracao CSRF no frontend
 - [ ] DEP-01 - Auditoria de dependencias
