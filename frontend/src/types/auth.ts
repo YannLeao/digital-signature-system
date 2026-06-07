@@ -1,3 +1,5 @@
+import type { ApiErrorResponse, ApiFieldError } from './api'
+
 export type RegisterUserRequest = {
   email: string
   password: string
@@ -12,14 +14,13 @@ export type AuthMessageResponse = {
   message: string
 }
 
-export type ApiFieldError = {
-  field: string
-  message: string
+export type AuthResponse = {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  requiresTwoFactor?: boolean
 }
 
-export type ApiErrorResponse = {
-  code: string
-  message: string
-  timestamp: string
-  fields?: ApiFieldError[]
-}
+export type RefreshResponse = AuthResponse
+
+export type { ApiErrorResponse, ApiFieldError }
