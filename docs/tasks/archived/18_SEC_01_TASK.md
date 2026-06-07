@@ -230,18 +230,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa SEC-01 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Configure CORS restritivo no backend Spring Security usando `CorsConfigurationSource`, com origens, métodos, headers, credenciais e max-age definidos por variáveis de ambiente.
-
-Não implemente CSRF, JWT, refresh token, cookies, security headers completos ou autorização por roles.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique como validar CORS com origem permitida
-* explique como validar CORS com origem não permitida
-* explique como validar pelo frontend

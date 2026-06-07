@@ -348,21 +348,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa SEC-02 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Implemente configuração global de HTTP Security Headers usando Spring Security, incluindo CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cache-Control e X-XSS-Protection.
-
-A configuração deve ser centralizada, segura e compatível com o frontend React/Vite já existente.
-
-Não implemente JWT, CSRF, cookies HttpOnly, sessões ou autenticação avançada.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique como validar os headers com curl
-* explique como validar CSP no navegador
-* explique possíveis impactos no frontend
-* explique como validar que o frontend continua funcional

@@ -269,19 +269,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Revise o PR referente à PASSKEY-01 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/architecture/database.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Corrija o erro de DI do Spring, alinhe os arquivos ao padrão arquitetural atual do projeto, revise a migration `V3__create_passkeys_table.sql`, revise as dependências adicionadas ao `pom.xml` e adicione testes automatizados mínimos.
-
-Não implemente PASSKEY-02, login com passkey, emissão de JWT, validação de counter ou frontend.
-
-Ao final:
-
-* informe o erro de DI encontrado e como foi corrigido
-* liste arquivos alterados
-* explique os testes adicionados
-* explique como validar manualmente os endpoints de registro de passkey
-* confirme que AUTH-01 e AUTH-02 continuam funcionando
