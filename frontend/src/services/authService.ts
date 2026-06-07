@@ -6,7 +6,11 @@ import type {
   LoginRequest,
   RegisterUserRequest,
 } from '../types/auth'
-import { setAccessToken, clearAccessToken } from '../utils/authTokenStore'
+import {
+  clearAccessToken,
+  setAccessToken,
+  setAuthSession,
+} from '../utils/authTokenStore'
 import { InvalidApiResponseError, parseApiError } from '../utils/parseApiError'
 
 export async function registerUser(
@@ -21,7 +25,7 @@ export async function loginUser(
 ): Promise<AuthResponse> {
   const response = await api.post<AuthResponse>('/auth/login', payload)
   const parsedResponse = parseAuthResponse(response.data)
-  setAccessToken(parsedResponse.accessToken)
+  setAuthSession(parsedResponse.accessToken, payload.email)
   return parsedResponse
 }
 

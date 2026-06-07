@@ -22,7 +22,7 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 
 - [x] PASSKEY-01 - Registro de credencial
 - [x] PASSKEY-02 - Autenticacao e validacao de counter
-- [ ] PASSKEY-03 - UI de registro e autenticacao com passkey
+- [x] PASSKEY-03 - UI de registro e autenticacao com passkey
 
 ## EPIC-03 - TOTP / 2FA
 

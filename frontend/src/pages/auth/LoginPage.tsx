@@ -1,13 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { AuthCard } from '../../components/auth/AuthCard'
 import { AuthFormField } from '../../components/auth/AuthFormField'
 import { useAuth } from '../../hooks/useAuth'
 import { loginSchema, type LoginFormData } from '../../schemas/authSchemas'
+import {
+  finishPasskeyAuthentication,
+  startPasskeyAuthentication,
+} from '../../services/passkeyService'
 import { getAuthErrorMessage } from '../../services/authService'
+import {
+  isConditionalUiSupported,
+  isUserCancellation,
+  serializeAuthenticationCredential,
+  toCredentialRequestOptions,
+} from '../../utils/webauthn'
 
 type LoginState = {
   authMessage?: string
@@ -20,6 +30,7 @@ export function LoginPage() {
   const { login } = useAuth()
   const [apiError, setApiError] = useState<string | null>(null)
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
@@ -30,6 +41,29 @@ export function LoginPage() {
       password: '',
     },
   })
+  const watchedEmail = useWatch({ control, name: 'email' })
+  const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null)
+  const [supportsConditionalUi, setSupportsConditionalUi] = useState(false)
+  const passkeyAbortController = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    void isConditionalUiSupported().then((isSupported) => {
+      if (isMounted) {
+        setSupportsConditionalUi(isSupported)
+        setPasskeyStatus(
+          isSupported
+            ? 'Passkey disponível pelo preenchimento automático do e-mail.'
+            : null,
+        )
+      }
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   async function onSubmit(data: LoginFormData) {
     setApiError(null)
@@ -41,9 +75,68 @@ export function LoginPage() {
         state: { authMessage: 'Login realizado com sucesso.' },
       })
     } catch (error) {
-      setApiError(getAuthErrorMessage(error, 'Nao foi possivel entrar.'))
+      setApiError(getAuthErrorMessage(error, 'Não foi possível entrar.'))
     }
   }
+
+  const authenticateWithConditionalUi = useCallback(
+    async (email: string, signal: AbortSignal) => {
+    try {
+      const options = await startPasskeyAuthentication({ email })
+
+      if (signal.aborted) {
+        return
+      }
+
+      const credential = await navigator.credentials.get(
+        toCredentialRequestOptions(options, 'conditional', signal),
+      )
+
+      if (!(credential instanceof PublicKeyCredential)) {
+        return
+      }
+
+      await finishPasskeyAuthentication({
+        credential: serializeAuthenticationCredential(credential),
+        email,
+      })
+      navigate('/', {
+        replace: true,
+        state: { authMessage: 'Login com passkey realizado com sucesso.' },
+      })
+    } catch (error) {
+      if (signal.aborted || isUserCancellation(error)) {
+        return
+      }
+
+      setPasskeyStatus(null)
+      setApiError(getAuthErrorMessage(error, 'Não foi possível usar a passkey.'))
+    }
+    },
+    [navigate],
+  )
+
+  useEffect(() => {
+    const email = watchedEmail?.trim()
+
+    passkeyAbortController.current?.abort()
+
+    if (!supportsConditionalUi || !email || !isEmailLike(email)) {
+      return
+    }
+
+    const controller = new AbortController()
+    passkeyAbortController.current = controller
+
+    const timeoutId = window.setTimeout(() => {
+      void authenticateWithConditionalUi(email, controller.signal)
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [authenticateWithConditionalUi, supportsConditionalUi, watchedEmail])
 
   return (
     <AuthCard
@@ -67,13 +160,18 @@ export function LoginPage() {
           </div>
         ) : null}
         <AuthFormField
-          autoComplete="email"
+          autoComplete="username webauthn"
           error={errors.email}
           label="E-mail"
           placeholder="user@example.com"
           registration={register('email')}
           type="email"
         />
+        {passkeyStatus ? (
+          <div className="rounded-lg border border-[#06B6D4]/30 bg-[#06B6D4]/10 px-3 py-2 text-sm text-cyan-100">
+            {passkeyStatus}
+          </div>
+        ) : null}
         <AuthFormField
           autoComplete="current-password"
           error={errors.password}
@@ -97,4 +195,8 @@ export function LoginPage() {
       </form>
     </AuthCard>
   )
+}
+
+function isEmailLike(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
