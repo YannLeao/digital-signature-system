@@ -3,10 +3,12 @@ import axios from 'axios'
 import { api } from './api'
 import type {
   ApiErrorResponse,
+  AuthResponse,
   AuthMessageResponse,
   LoginRequest,
   RegisterUserRequest,
 } from '../types/auth'
+import { clearAccessToken, setAccessToken } from '../utils/authToken'
 
 export async function registerUser(
   payload: RegisterUserRequest,
@@ -17,9 +19,25 @@ export async function registerUser(
 
 export async function loginUser(
   payload: LoginRequest,
-): Promise<AuthMessageResponse> {
-  const response = await api.post<AuthMessageResponse>('/auth/login', payload)
+): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/login', payload)
+  setAccessToken(response.data.accessToken)
   return response.data
+}
+
+export async function refreshSession(): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/refresh')
+  setAccessToken(response.data.accessToken)
+  return response.data
+}
+
+export async function logoutUser(): Promise<AuthMessageResponse> {
+  try {
+    const response = await api.post<AuthMessageResponse>('/auth/logout')
+    return response.data
+  } finally {
+    clearAccessToken()
+  }
 }
 
 export function getAuthErrorMessage(error: unknown, fallbackMessage: string) {
