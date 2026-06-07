@@ -1,11 +1,13 @@
 package com.example.backend.config;
 
+import com.example.backend.security.CsrfProtectionFilter;
 import com.example.backend.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,7 +31,11 @@ public class SecurityConfig {
 	private static final int ARGON2_ITERATIONS = 3;
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+	SecurityFilterChain securityFilterChain(
+			HttpSecurity http,
+			CsrfProtectionFilter csrfProtectionFilter,
+			JwtAuthenticationFilter jwtAuthenticationFilter
+	) throws Exception {
 		return http
 				.cors(Customizer.withDefaults())
 				.headers(headers -> headers
@@ -47,28 +53,7 @@ public class SecurityConfig {
 								.headerValue(XXssProtectionHeaderWriter.HeaderValue.DISABLED)
 						)
 				)
-				.csrf(csrf -> csrf.ignoringRequestMatchers(
-						"/auth/register",
-						"/api/v1/auth/register",
-						"/auth/login",
-						"/api/v1/auth/login",
-						"/auth/refresh",
-						"/api/v1/auth/refresh",
-						"/auth/logout",
-						"/api/v1/auth/logout",
-						"/auth/2fa/setup",
-						"/api/v1/auth/2fa/setup",
-						"/auth/2fa/verify",
-						"/api/v1/auth/2fa/verify",
-						"/auth/passkey/register/start",
-						"/api/v1/auth/passkey/register/start",
-						"/auth/passkey/register/finish",
-						"/api/v1/auth/passkey/register/finish",
-						"/auth/passkey/auth/start",
-						"/api/v1/auth/passkey/auth/start",
-						"/auth/passkey/auth/finish",
-						"/api/v1/auth/passkey/auth/finish"
-				))
+				.csrf(AbstractHttpConfigurer::disable)
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers(
@@ -78,6 +63,8 @@ public class SecurityConfig {
 								"/api/v1/auth/register",
 								"/auth/login",
 								"/api/v1/auth/login",
+								"/auth/csrf",
+								"/api/v1/auth/csrf",
 								"/auth/refresh",
 								"/api/v1/auth/refresh",
 								"/auth/passkey/register/start",
@@ -92,6 +79,7 @@ public class SecurityConfig {
 						.anyRequest().authenticated()
 				)
 				.httpBasic(Customizer.withDefaults())
+				.addFilterBefore(csrfProtectionFilter, UsernamePasswordAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.build();
 	}
