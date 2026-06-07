@@ -431,24 +431,3 @@ Consulte antes de implementar:
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
 * `docs/decisions/DECISIONS.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa JWT-02 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, 
-`docs/architecture/backend.md`, `docs/architecture/database.md`, `docs/security/security-overview.md`, 
-`docs/standards/api.md`, `docs/standards/coding.md` e este arquivo.
-
-Implemente Refresh Token opaco com rotação, armazenamento apenas como hash em PostgreSQL, cookie HttpOnly, expiração de 
-7 dias e detecção de reuso com invalidação da família de tokens.
-
-Não implemente Redis, logout completo, denylist de Access Token, CSRF completo, sessões ativas, auditoria ou frontend.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique a modelagem da tabela de refresh tokens
-* explique como o cookie HttpOnly foi configurado
-* explique como testar login com refresh token
-* explique como testar rotação
-* explique como testar reuso de token antigo
-* confirme que o refresh token nunca é retornado no JSON nem salvo em texto puro

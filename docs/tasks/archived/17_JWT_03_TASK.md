@@ -418,25 +418,3 @@ Consulte antes de implementar:
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
 * `docs/decisions/DECISIONS.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa JWT-03 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, 
-`docs/architecture/backend.md`, `docs/architecture/database.md`, `docs/security/security-overview.md`, 
-`docs/standards/api.md`, `docs/standards/coding.md` e este arquivo.
-
-Implemente denylist pós-logout baseada em `jti`, integração com JwtAuthenticationFilter, invalidação de Refresh Token e 
-limpeza de cookie HttpOnly.
-
-Utilize PostgreSQL como persistência inicial da denylist.
-
-Não implemente Redis, sessões ativas completas, painel de dispositivos, logout global multi-device ou auditoria avançada.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique a modelagem da denylist
-* explique como a validação foi integrada ao filtro JWT
-* explique como testar reutilização de token após logout
-* explique como validar limpeza do cookie HttpOnly
-* confirme que Refresh Tokens também são invalidados no logout

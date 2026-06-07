@@ -8,6 +8,7 @@ import {
   registerUser,
 } from '../services/authService'
 import {
+  getAuthenticatedEmail,
   getAccessToken,
   subscribeToAccessToken,
 } from '../utils/authTokenStore'
@@ -20,12 +21,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [accessToken, setAccessTokenState] = useState<string | null>(() =>
     getAccessToken(),
   )
+  const [email, setEmail] = useState<string | null>(() => getAuthenticatedEmail())
 
-  useEffect(() => subscribeToAccessToken(setAccessTokenState), [])
+  useEffect(
+    () =>
+      subscribeToAccessToken((session) => {
+        setAccessTokenState(session.accessToken)
+        setEmail(session.email)
+      }),
+    [],
+  )
 
   const value = useMemo<AuthContextValue>(
     () => ({
       accessToken,
+      email,
       isAuthenticated: Boolean(accessToken),
       login: loginUser,
       logout: async () => {
@@ -34,7 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refresh: refreshSession,
       register: registerUser,
     }),
-    [accessToken],
+    [accessToken, email],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

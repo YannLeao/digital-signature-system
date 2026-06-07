@@ -242,19 +242,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa AUTH-02 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Implemente o endpoint de login com validação Argon2id, mensagem genérica para falhas, bloqueio após 5 tentativas consecutivas e rate limiting por IP.
-
-Não implemente JWT, refresh token, sessão, TOTP, passkeys ou frontend.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique como testar login válido
-* explique como testar mensagem genérica
-* explique como testar bloqueio de conta
-* explique como testar rate limiting

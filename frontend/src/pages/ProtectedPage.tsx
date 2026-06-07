@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export function ProtectedPage() {
   return (
     <section className="max-w-xl">
@@ -10,6 +12,12 @@ export function ProtectedPage() {
       <p className="mt-4 text-base leading-7 text-[#9CA3AF]">
         Esta pagina so deve renderizar quando houver token local disponivel.
       </p>
+      <Link
+        className="mt-6 inline-flex rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-400"
+        to="/security/passkeys"
+      >
+        Gerenciar passkeys
+      </Link>
     </section>
   )
 }

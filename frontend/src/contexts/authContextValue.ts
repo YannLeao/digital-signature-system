@@ -9,6 +9,7 @@ import type {
 
 export type AuthContextValue = {
   accessToken: string | null
+  email: string | null
   isAuthenticated: boolean
   login: (payload: LoginRequest) => Promise<AuthResponse>
   logout: () => Promise<void>

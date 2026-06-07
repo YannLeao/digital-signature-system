@@ -370,23 +370,3 @@ Consulte antes de implementar:
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
 * `docs/decisions/DECISIONS.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa JWT-01 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, 
-`docs/architecture/backend.md`, `docs/security/security-overview.md`, `docs/standards/api.md`, `docs/standards/coding.md`
-e este arquivo.
-
-Implemente infraestrutura JWT segura utilizando algoritmo assimétrico (RS256 ou ES256), claims de segurança adicionais, 
-validação centralizada e integração com o endpoint de login.
-
-Não implemente refresh token, cookies HttpOnly, denylist, logout completo, CSRF ou OAuth ainda.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique a estratégia escolhida para as chaves
-* explique as claims implementadas
-* explique como validar o token no jwt.io
-* explique os testes automatizados adicionados
-* explique como validar tokens expirados e inválidos

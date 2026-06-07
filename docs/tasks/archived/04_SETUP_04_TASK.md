@@ -125,11 +125,3 @@ Consulte antes de implementar:
 * `docs/architecture/backend.md`
 * `docs/standards/api.md`
 * `docs/security/security-overview.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa SETUP-04 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/standards/api.md` e este arquivo.
-
-Crie um tratamento global de erros seguro, consistente e reutilizável. Não implemente autenticação, JWT, login ou cadastro ainda.
-
-Ao final, informe os arquivos criados/alterados e explique como testar respostas de validação, recurso não encontrado e erro genérico.

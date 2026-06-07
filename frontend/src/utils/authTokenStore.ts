@@ -1,19 +1,43 @@
-type AccessTokenListener = (token: string | null) => void
+type AuthSession = {
+  accessToken: string | null
+  email: string | null
+}
 
-let accessToken: string | null = null
+type AccessTokenListener = (session: AuthSession) => void
+
+const authSession: AuthSession = {
+  accessToken: null,
+  email: null,
+}
 const listeners = new Set<AccessTokenListener>()
 
 export function getAccessToken(): string | null {
-  return accessToken
+  return authSession.accessToken
+}
+
+export function getAuthenticatedEmail(): string | null {
+  return authSession.email
 }
 
 export function setAccessToken(token: string): void {
-  accessToken = token
+  authSession.accessToken = token
+  notifyListeners()
+}
+
+export function setAuthenticatedEmail(email: string): void {
+  authSession.email = email.trim().toLowerCase()
+  notifyListeners()
+}
+
+export function setAuthSession(token: string, email: string): void {
+  authSession.accessToken = token
+  authSession.email = email.trim().toLowerCase()
   notifyListeners()
 }
 
 export function clearAccessToken(): void {
-  accessToken = null
+  authSession.accessToken = null
+  authSession.email = null
   notifyListeners()
 }
 
@@ -28,8 +52,10 @@ export function subscribeToAccessToken(
 }
 
 function notifyListeners(): void {
+  const snapshot = { ...authSession }
+
   listeners.forEach((listener) => {
-    listener(accessToken)
+    listener(snapshot)
   })
 }
 
