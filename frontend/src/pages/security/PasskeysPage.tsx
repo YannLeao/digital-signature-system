@@ -68,8 +68,7 @@ export function PasskeysPage() {
         />
 
         <AddPasskeyButton
-          disabled={!email || !browserSupported}
-          isLoading={isAdding}
+          disabled={!email || !browserSupported || isAdding}
           onAdd={registerPasskey}
         />
       </div>
@@ -82,4 +81,3 @@ export function PasskeysPage() {
     </section>
   )
 }
-

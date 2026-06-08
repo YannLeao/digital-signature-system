@@ -17,6 +17,7 @@ import type { RefreshResponse } from '../types/auth'
 import {
   clearAccessToken,
   getAccessToken,
+  getTwoFactorToken,
   setAccessToken,
 } from '../utils/authTokenStore'
 import { env } from '../utils/env'
@@ -41,7 +42,7 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   const headers = AxiosHeaders.from(config.headers)
-  const token = getAccessToken()
+  const token = authorizationTokenFor(config.url ?? '')
   const method = config.method?.toLowerCase() ?? 'get'
 
   if (token) {
@@ -129,6 +130,14 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   return refreshRequest
+}
+
+function authorizationTokenFor(url: string): string | null {
+  if (url.endsWith('/auth/2fa/verify')) {
+    return getTwoFactorToken()
+  }
+
+  return getAccessToken()
 }
 
 function shouldRefreshAccessToken(config: RetriableRequestConfig): boolean {

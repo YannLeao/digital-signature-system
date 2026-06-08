@@ -7,6 +7,7 @@ import com.example.backend.dto.auth.LogoutResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
 import com.example.backend.dto.auth.TotpSetupResponse;
+import com.example.backend.dto.auth.TotpSetupConfirmResponse;
 import com.example.backend.dto.auth.TotpVerifyRequest;
 import com.example.backend.dto.auth.TotpVerifyResponse;
 import com.example.backend.domain.User;
@@ -127,6 +128,18 @@ public class AuthController {
         }
         UUID userId = UUID.fromString(jwt.getSubject());
         return ResponseEntity.ok(totpSetupService.setup(userId));
+    }
+
+    @PostMapping("/2fa/setup/confirm")
+    ResponseEntity<TotpSetupConfirmResponse> confirm2faSetup(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody TotpVerifyRequest request
+    ) {
+        if (jwt == null) {
+            throw new InvalidAccessTokenException();
+        }
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(totpSetupService.confirm(userId, request.code()));
     }
 
     @PostMapping("/2fa/verify")

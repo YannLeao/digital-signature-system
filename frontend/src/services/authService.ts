@@ -10,6 +10,7 @@ import {
   clearAccessToken,
   setAccessToken,
   setAuthSession,
+  setTwoFactorSession,
 } from '../utils/authTokenStore'
 import { InvalidApiResponseError, parseApiError } from '../utils/parseApiError'
 
@@ -25,6 +26,12 @@ export async function loginUser(
 ): Promise<AuthResponse> {
   const response = await api.post<AuthResponse>('/auth/login', payload)
   const parsedResponse = parseAuthResponse(response.data)
+
+  if (parsedResponse.requiresTwoFactor) {
+    setTwoFactorSession(parsedResponse.accessToken, payload.email)
+    return parsedResponse
+  }
+
   setAuthSession(parsedResponse.accessToken, payload.email)
   return parsedResponse
 }

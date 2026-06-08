@@ -70,6 +70,21 @@ public class User {
 		this.updatedAt = now;
 	}
 
+	public void startTotpSetup(String encryptedSecret, Instant now) {
+		this.totpSecretEncrypted = encryptedSecret;
+		this.totpEnabled = false;
+		this.totpFailedAttempts = 0;
+		this.totpLockedUntil = null;
+		this.updatedAt = now;
+	}
+
+	public void confirmTotpSetup(Instant now) {
+		this.totpEnabled = true;
+		this.totpFailedAttempts = 0;
+		this.totpLockedUntil = null;
+		this.updatedAt = now;
+	}
+
 	public boolean isTotpLockedAt(Instant now) {
 		return totpLockedUntil != null && totpLockedUntil.isAfter(now);
 	}

@@ -1,6 +1,7 @@
 type AuthSession = {
   accessToken: string | null
   email: string | null
+  twoFactorToken: string | null
 }
 
 type AccessTokenListener = (session: AuthSession) => void
@@ -8,6 +9,7 @@ type AccessTokenListener = (session: AuthSession) => void
 const authSession: AuthSession = {
   accessToken: null,
   email: null,
+  twoFactorToken: null,
 }
 const listeners = new Set<AccessTokenListener>()
 
@@ -19,8 +21,13 @@ export function getAuthenticatedEmail(): string | null {
   return authSession.email
 }
 
+export function getTwoFactorToken(): string | null {
+  return authSession.twoFactorToken
+}
+
 export function setAccessToken(token: string): void {
   authSession.accessToken = token
+  authSession.twoFactorToken = null
   notifyListeners()
 }
 
@@ -32,12 +39,21 @@ export function setAuthenticatedEmail(email: string): void {
 export function setAuthSession(token: string, email: string): void {
   authSession.accessToken = token
   authSession.email = email.trim().toLowerCase()
+  authSession.twoFactorToken = null
+  notifyListeners()
+}
+
+export function setTwoFactorSession(token: string, email: string): void {
+  authSession.accessToken = null
+  authSession.email = email.trim().toLowerCase()
+  authSession.twoFactorToken = token
   notifyListeners()
 }
 
 export function clearAccessToken(): void {
   authSession.accessToken = null
   authSession.email = null
+  authSession.twoFactorToken = null
   notifyListeners()
 }
 

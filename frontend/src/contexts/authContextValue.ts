@@ -11,6 +11,7 @@ export type AuthContextValue = {
   accessToken: string | null
   email: string | null
   isAuthenticated: boolean
+  isTwoFactorPending: boolean
   login: (payload: LoginRequest) => Promise<AuthResponse>
   logout: () => Promise<void>
   refresh: () => Promise<AuthResponse>
