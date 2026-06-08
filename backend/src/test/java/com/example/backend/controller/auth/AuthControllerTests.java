@@ -3,6 +3,7 @@ package com.example.backend.controller.auth;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.TotpSetupResponse;
+import com.example.backend.dto.auth.TotpSetupConfirmResponse;
 import com.example.backend.domain.User;
 import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.exception.BusinessException;
@@ -328,9 +329,28 @@ class AuthControllerTests {
         mockMvc.perform(post("/auth/2fa/setup"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.otpauthUrl").value("otpauth://totp/projeto:user@example.com"))
-                .andExpect(jsonPath("$.backupCodes[0]").value("ABCDEF1234567890ABCD"));
+                .andExpect(jsonPath("$.backupCodes").isArray());
 
         verify(totpSetupService).setup(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void confirm2faSetupUsesAuthenticatedSubjectAndReturnsBackupCodes() throws Exception {
+        Jwt jwt = jwt();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
+        when(totpSetupService.confirm(UUID.fromString("11111111-1111-1111-1111-111111111111"), "123456"))
+                .thenReturn(new TotpSetupConfirmResponse(List.of("ABCDEF1234567890ABCD")));
+
+        mockMvc.perform(post("/auth/2fa/setup/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.backupCodes[0]").value("ABCDEF1234567890ABCD"));
+
+        verify(totpSetupService).confirm(UUID.fromString("11111111-1111-1111-1111-111111111111"), "123456");
         SecurityContextHolder.clearContext();
     }
 
