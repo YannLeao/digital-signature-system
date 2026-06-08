@@ -56,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		try {
-			Jwt jwt = jwtValidator.validate(token);
+			Jwt jwt = validateTokenForRequest(token, request);
 			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
 					jwt,
 					null,
@@ -68,6 +68,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			SecurityContextHolder.clearContext();
 			writeUnauthorized(response);
 		}
+	}
+
+	private Jwt validateTokenForRequest(String token, HttpServletRequest request) {
+		if (isTotpVerifyRequest(request)) {
+			return jwtValidator.validateTotpChallengeToken(token);
+		}
+		return jwtValidator.validateAccessToken(token);
+	}
+
+	private boolean isTotpVerifyRequest(HttpServletRequest request) {
+		String path = request.getServletPath();
+		return "POST".equalsIgnoreCase(request.getMethod())
+				&& ("/auth/2fa/verify".equals(path) || "/api/v1/auth/2fa/verify".equals(path));
 	}
 
 	private String bearerToken(HttpServletRequest request) {

@@ -4,7 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 public record TotpVerifyRequest(
-        @NotBlank
-        @Pattern(regexp = "\\d{6}", message = "Código TOTP deve ter 6 dígitos numéricos.")
-        String code
-) {}
+		@NotBlank
+		@Pattern(regexp = "(\\d{6}|[A-Fa-f0-9]{20})", message = "Codigo deve ser um TOTP de 6 digitos ou backup code valido.")
+		String code
+) {
+}

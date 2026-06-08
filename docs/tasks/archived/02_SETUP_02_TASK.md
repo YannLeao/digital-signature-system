@@ -70,9 +70,3 @@ Não implementar ainda:
 - Passkeys
 - Assinatura de PDFs
 - Dashboard completo
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa SETUP-02 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/frontend.md` 
-e este arquivo. Não implemente funcionalidades fora do escopo. Ao final, informe os arquivos criados/alterados e como 
-validar com `npm run dev`.

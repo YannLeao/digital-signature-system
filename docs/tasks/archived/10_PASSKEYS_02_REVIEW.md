@@ -326,29 +326,3 @@ Consulte antes de revisar:
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
 * `docs/decisions/DECISIONS.md`
-
-## Prompt recomendado para o agente
-
-Revise a implementação da tarefa PASSKEY-02 seguindo todos os padrões documentados em `docs/`.
-
-Verifique os arquivos modificados:
-
-* `PasskeyController.java`
-* `Passkey.java`
-* `PasskeyService.java`
-* `PasskeyServiceTests.java`
-
-Confirme se o fluxo de autenticação com passkey está correto, se a validação de counter anti-clonagem foi implementada 
-com segurança e se os testes cobrem os cenários críticos.
-
-Corrija problemas encontrados, alinhe o código à arquitetura do projeto e adicione testes quando necessário.
-
-Não implemente UI, revogação de dispositivos, auditoria completa, TOTP, CSRF ou funcionalidades fora do escopo.
-
-Ao final:
-
-* informe os problemas encontrados
-* explique correções feitas
-* explique como a validação de counter funciona
-* liste os testes adicionados/ajustados
-* confirme que PASSKEY-01 não foi quebrada

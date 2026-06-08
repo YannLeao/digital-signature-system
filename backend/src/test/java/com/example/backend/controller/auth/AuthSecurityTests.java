@@ -3,6 +3,7 @@ package com.example.backend.controller.auth;
 import com.example.backend.domain.User;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.PasskeyRepository;
+import com.example.backend.repository.TotpBackupCodeRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.JwtLogoutService;
@@ -93,6 +94,10 @@ class AuthSecurityTests {
 	@SuppressWarnings("unused")
 	private PasskeyRepository passkeyRepository;
 
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpBackupCodeRepository totpBackupCodeRepository;
+
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
@@ -135,7 +140,7 @@ class AuthSecurityTests {
 	}
 
 	@Test
-	void permitsVersionedRefreshWithoutAuthenticationOrCsrfToken() throws Exception {
+	void permitsVersionedRefreshWithValidCsrfToken() throws Exception {
 		when(refreshTokenService.rotate(any(), any()))
 				.thenReturn(new com.example.backend.security.RefreshTokenResult(
 						new AccessToken("new-jwt-token", "Bearer", 900),
@@ -144,6 +149,8 @@ class AuthSecurityTests {
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
 						.servletPath("/api/v1")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token"))
 						.cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh-token")))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.accessToken").value("new-jwt-token"))
@@ -151,13 +158,24 @@ class AuthSecurityTests {
 	}
 
 	@Test
+	void rejectsVersionedRefreshWithoutCsrfToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/refresh")
+						.servletPath("/api/v1")
+						.cookie(new jakarta.servlet.http.Cookie("refresh_token", "old-refresh-token")))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("SEC_001"));
+	}
+
+	@Test
 	void protectsVersionedLogoutWithBearerTokenAndClearsCookie() throws Exception {
 		Jwt jwt = jwt();
-		when(jwtValidator.validate("access-token")).thenReturn(jwt);
+		when(jwtValidator.validateAccessToken("access-token")).thenReturn(jwt);
 
 		mockMvc.perform(post("/api/v1/auth/logout")
 						.servletPath("/api/v1")
-						.header("Authorization", "Bearer access-token"))
+						.header("Authorization", "Bearer access-token")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token")))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Logout realizado com sucesso."))
 				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=")))
@@ -176,6 +194,7 @@ class AuthSecurityTests {
 				.issuedAt(issuedAt)
 				.expiresAt(issuedAt.plusSeconds(900))
 				.claim("session_id", "33333333-3333-3333-3333-333333333333")
+				.claim("token_use", "access")
 				.claim("ip", "ip-hash")
 				.claim("ua_hash", "ua-hash")
 				.build();

@@ -347,22 +347,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa AUTH-03 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/frontend.md`, `docs/standard/frontend-style.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Crie as telas de login e cadastro no frontend com React, TypeScript, TailwindCSS, React Hook Form e Zod, respeitando separação entre page, component, service, schema e type.
-
-Integre com os endpoints `/api/v1/auth/register` e `/api/v1/auth/login`.
-
-Não implemente JWT definitivo, refresh token, sessão persistente, TOTP, passkeys ou dashboard completo.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique como testar cadastro
-* explique como testar login
-* explique como validar mensagens genéricas de erro
-* explique como confirmar que nenhuma senha/token sensível foi salvo em storage
-

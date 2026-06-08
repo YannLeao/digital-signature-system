@@ -17,16 +17,19 @@ import java.util.UUID;
 @Component
 public class JwtClaimsFactory {
 
-    static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
-    static final Duration HALF_SESSION_TTL = Duration.ofMinutes(5);
+	static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
+	static final Duration HALF_SESSION_TTL = Duration.ofMinutes(5);
+	static final String TOKEN_USE_ACCESS = "access";
+	static final String TOKEN_USE_TOTP_CHALLENGE = "totp_challenge";
+	static final String SCOPE_TOTP_VERIFY = "2fa:verify";
 
     private final Clock clock;
     private final String issuer;
 
-    @Autowired
-    public JwtClaimsFactory(@Value("${JWT_ISSUER}") String issuer) {
-        this(Clock.systemUTC(), issuer);
-    }
+	@Autowired
+	public JwtClaimsFactory(@Value("${JWT_ISSUER}") String issuer) {
+		this(Clock.systemUTC(), issuer);
+	}
 
     JwtClaimsFactory(Clock clock, String issuer) {
         this.clock = clock;
@@ -44,11 +47,12 @@ public class JwtClaimsFactory {
                 .subject(user.getId().toString())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(issuedAt)
-                .expiresAt(issuedAt.plus(ACCESS_TOKEN_TTL))
-                .claim("session_id", sessionId.toString())
-                .claim("ip", sha256(clientContext.ipAddress()))
-                .claim("ua_hash", sha256(clientContext.userAgent()))
-                .build();
+				.expiresAt(issuedAt.plus(ACCESS_TOKEN_TTL))
+				.claim("session_id", sessionId.toString())
+				.claim("token_use", TOKEN_USE_ACCESS)
+				.claim("ip", sha256(clientContext.ipAddress()))
+				.claim("ua_hash", sha256(clientContext.userAgent()))
+				.build();
     }
 
     public JwtClaimsSet createHalfSessionClaims(User user, ClientContext clientContext) {
@@ -56,13 +60,15 @@ public class JwtClaimsFactory {
         return JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(user.getId().toString())
-                .id(UUID.randomUUID().toString())
-                .issuedAt(issuedAt)
-                .expiresAt(issuedAt.plus(HALF_SESSION_TTL))
-                .claim("scope", "2fa:verify")
-                .claim("ip", sha256(clientContext.ipAddress()))
-                .claim("ua_hash", sha256(clientContext.userAgent()))
-                .build();
+				.id(UUID.randomUUID().toString())
+				.issuedAt(issuedAt)
+				.expiresAt(issuedAt.plus(HALF_SESSION_TTL))
+				.claim("session_id", UUID.randomUUID().toString())
+				.claim("token_use", TOKEN_USE_TOTP_CHALLENGE)
+				.claim("scope", SCOPE_TOTP_VERIFY)
+				.claim("ip", sha256(clientContext.ipAddress()))
+				.claim("ua_hash", sha256(clientContext.userAgent()))
+				.build();
     }
 
     public long accessTokenExpiresInSeconds() {

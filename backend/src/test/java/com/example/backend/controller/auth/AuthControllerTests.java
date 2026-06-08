@@ -2,6 +2,7 @@ package com.example.backend.controller.auth;
 
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.RegisterUserRequest;
+import com.example.backend.dto.auth.TotpSetupResponse;
 import com.example.backend.domain.User;
 import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.exception.BusinessException;
@@ -9,8 +10,10 @@ import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.RateLimitExceededException;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
+import com.example.backend.security.CsrfTokenService;
 import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
+import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
@@ -33,6 +36,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +48,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,7 +61,9 @@ class AuthControllerTests {
     private JwtService jwtService;
     private RefreshTokenService refreshTokenService;
     private RefreshTokenCookieFactory refreshTokenCookieFactory;
+    private CsrfTokenService csrfTokenService;
     private JwtLogoutService jwtLogoutService;
+    private JwtValidator jwtValidator;
     private TotpSetupService totpSetupService;
     private TotpVerifyService totpVerifyService;
     private MockMvc mockMvc;
@@ -69,7 +76,9 @@ class AuthControllerTests {
         jwtService = mock(JwtService.class);
         refreshTokenService = mock(RefreshTokenService.class);
         refreshTokenCookieFactory = mock(RefreshTokenCookieFactory.class);
+        csrfTokenService = mock(CsrfTokenService.class);
         jwtLogoutService = mock(JwtLogoutService.class);
+        jwtValidator = mock(JwtValidator.class);
         totpSetupService = mock(TotpSetupService.class);
         totpVerifyService = mock(TotpVerifyService.class);
 
@@ -88,6 +97,20 @@ class AuthControllerTests {
                 .path("/api/v1/auth/refresh")
                 .maxAge(0)
                 .build());
+        when(csrfTokenService.generateToken()).thenReturn("csrf-token");
+        when(csrfTokenService.createCookie("csrf-token")).thenReturn(ResponseCookie.from("XSRF-TOKEN", "csrf-token")
+                .httpOnly(false)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/")
+                .build());
+        when(csrfTokenService.clearCookie()).thenReturn(ResponseCookie.from("XSRF-TOKEN", "")
+                .httpOnly(false)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(0)
+                .build());
 
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -99,7 +122,9 @@ class AuthControllerTests {
                         jwtService,
                         refreshTokenService,
                         refreshTokenCookieFactory,
+                        csrfTokenService,
                         jwtLogoutService,
+                        jwtValidator,
                         totpSetupService,
                         totpVerifyService
                 ))
@@ -249,6 +274,104 @@ class AuthControllerTests {
     }
 
     @Test
+    void loginWithTotpEnabledReturnsOnlyHalfSessionTokenWithoutRefreshCookie() throws Exception {
+        String password = "StrongPassword123!";
+        User user = User.register(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "user@example.com",
+                "password-hash",
+                Instant.parse("2026-05-22T12:00:00Z")
+        );
+        user.enableTotp("encrypted-secret", Instant.parse("2026-05-22T12:01:00Z"));
+        when(userLoginService.login(new LoginRequest("user@example.com", password))).thenReturn(user);
+        when(jwtService.issueHalfSessionToken(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5"))))
+                .thenReturn(new AccessToken("half-session-token", "Bearer", 300));
+
+        mockMvc.perform(post("/auth/login")
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.10");
+                            return request;
+                        })
+                        .header("User-Agent", "JUnit/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"user@example.com","password":"StrongPassword123!"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("half-session-token"))
+                .andExpect(jsonPath("$.requiresTwoFactor").value(true))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("XSRF-TOKEN=csrf-token")));
+
+        verify(jwtService).issueHalfSessionToken(user, new ClientContext("203.0.113.10", "JUnit/5"));
+        verify(jwtService, never()).issueAccessToken(any(), any(), any());
+        verify(refreshTokenService, never()).issueForLogin(any(), any(), any());
+    }
+
+    @Test
+    void csrfEndpointIssuesReadableCookie() throws Exception {
+        mockMvc.perform(get("/auth/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("CSRF token issued."))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("XSRF-TOKEN=csrf-token")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("SameSite=Strict")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Path=/")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("HttpOnly"))));
+    }
+
+    @Test
+    void setup2faUsesAuthenticatedSubjectOnly() throws Exception {
+        Jwt jwt = jwt();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
+        when(totpSetupService.setup(UUID.fromString("11111111-1111-1111-1111-111111111111")))
+                .thenReturn(new TotpSetupResponse("otpauth://totp/projeto:user@example.com", List.of("ABCDEF1234567890ABCD")));
+
+        mockMvc.perform(post("/auth/2fa/setup"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.otpauthUrl").value("otpauth://totp/projeto:user@example.com"))
+                .andExpect(jsonPath("$.backupCodes[0]").value("ABCDEF1234567890ABCD"));
+
+        verify(totpSetupService).setup(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void verify2faIssuesFinalJwtAndRefreshCookieAfterHalfSessionValidation() throws Exception {
+        Jwt halfSession = halfSessionJwt();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(halfSession, null));
+        when(jwtValidator.validateTotpChallengeToken("half-session-token")).thenReturn(halfSession);
+        when(totpVerifyService.verify(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "123456",
+                new ClientContext("203.0.113.10", "JUnit/5")
+        )).thenReturn(new RefreshTokenResult(new AccessToken("final-jwt-token", "Bearer", 900), "refresh-token-raw"));
+
+        String response = mockMvc.perform(post("/auth/2fa/verify")
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.10");
+                            return request;
+                        })
+                        .header("User-Agent", "JUnit/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("final-jwt-token"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(900))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("refresh_token=refresh-token-raw")))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(response).doesNotContain("refresh-token-raw", "refreshToken");
+        verify(jwtValidator).validateTotpChallengeToken("half-session-token");
+        verify(jwtLogoutService).logout(halfSession);
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
     void returnsGenericAuthenticationErrorForLoginFailure() throws Exception {
         doThrow(new AuthenticationFailedException())
                 .when(userLoginService)
@@ -327,6 +450,22 @@ class AuthControllerTests {
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plusSeconds(900))
                 .claim("session_id", "33333333-3333-3333-3333-333333333333")
+                .claim("ip", "ip-hash")
+                .claim("ua_hash", "ua-hash")
+                .build();
+    }
+
+    private Jwt halfSessionJwt() {
+        Instant issuedAt = Instant.parse("2026-05-22T12:00:00Z");
+        return Jwt.withTokenValue("half-session-token")
+                .header("alg", "RS256")
+                .subject("11111111-1111-1111-1111-111111111111")
+                .claim("jti", "44444444-4444-4444-4444-444444444444")
+                .issuedAt(issuedAt)
+                .expiresAt(issuedAt.plusSeconds(300))
+                .claim("session_id", "55555555-5555-5555-5555-555555555555")
+                .claim("token_use", "totp_challenge")
+                .claim("scope", "2fa:verify")
                 .claim("ip", "ip-hash")
                 .claim("ua_hash", "ua-hash")
                 .build();

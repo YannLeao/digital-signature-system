@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.RefreshTokenRepository;
+import com.example.backend.repository.TotpBackupCodeRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.UserLoginService;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"DB_PASSWORD=postgres",
 		"CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173",
 		"CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS",
-		"CORS_ALLOWED_HEADERS=Authorization,Content-Type,X-Request-ID",
+		"CORS_ALLOWED_HEADERS=Authorization,Content-Type,X-Request-ID,X-CSRF-Token",
 		"CORS_ALLOW_CREDENTIALS=true",
 		"CORS_MAX_AGE=3600",
 		"WEBAUTHN_RP_ID=localhost",
@@ -71,6 +72,10 @@ class SecurityCorsTests {
 	@SuppressWarnings("unused")
 	private JwtDenylistRepository jwtDenylistRepository;
 
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpBackupCodeRepository totpBackupCodeRepository;
+
 	@Autowired
 	SecurityCorsTests(MockMvc mockMvc) {
 		this.mockMvc = mockMvc;
@@ -87,6 +92,18 @@ class SecurityCorsTests {
 				.andExpect(header().string("Access-Control-Allow-Credentials", "true"))
 				.andExpect(header().string("Access-Control-Max-Age", "3600"))
 				.andExpect(header().string("Vary", "Origin"));
+	}
+
+	@Test
+	void returnsCorsHeadersForAllowedCsrfHeaderPreflight() throws Exception {
+		mockMvc.perform(options("/api/v1/auth/logout")
+						.servletPath("/api/v1")
+						.header("Origin", "http://localhost:5173")
+						.header("Access-Control-Request-Method", "POST")
+						.header("Access-Control-Request-Headers", "X-CSRF-Token, Content-Type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+				.andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-CSRF-Token")));
 	}
 
 	@Test

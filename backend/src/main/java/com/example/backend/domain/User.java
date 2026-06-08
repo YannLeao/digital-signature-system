@@ -35,49 +35,60 @@ public class User {
 	private Instant lockedUntil;
 
 	@Column(name = "totp_secret_encrypted")
-private String totpSecretEncrypted;
+	private String totpSecretEncrypted;
 
-@Column(name = "totp_enabled", nullable = false)
-private boolean totpEnabled = false;
+	@Column(name = "totp_enabled", nullable = false)
+	private boolean totpEnabled = false;
 
-@Column(name = "totp_failed_attempts", nullable = false)
-private int totpFailedAttempts = 0;
+	@Column(name = "totp_failed_attempts", nullable = false)
+	private int totpFailedAttempts = 0;
 
-@Column(name = "totp_locked_until")
-private Instant totpLockedUntil;
+	@Column(name = "totp_locked_until")
+	private Instant totpLockedUntil;
 
-public String getTotpSecretEncrypted() { return totpSecretEncrypted; }
-public boolean isTotpEnabled() { return totpEnabled; }
-public int getTotpFailedAttempts() { return totpFailedAttempts; }
-public Instant getTotpLockedUntil() { return totpLockedUntil; }
+	public String getTotpSecretEncrypted() {
+		return totpSecretEncrypted;
+	}
 
-public void enableTotp(String encryptedSecret, Instant now) {
-    this.totpSecretEncrypted = encryptedSecret;
-    this.totpEnabled = true;
-    this.totpFailedAttempts = 0;
-    this.totpLockedUntil = null;
-    this.updatedAt = now;
-}
+	public boolean isTotpEnabled() {
+		return totpEnabled;
+	}
 
-public boolean isTotpLockedAt(Instant now) {
-    return totpLockedUntil != null && totpLockedUntil.isAfter(now);
-}
+	public int getTotpFailedAttempts() {
+		return totpFailedAttempts;
+	}
 
-public void recordTotpFailure(Instant now) {
-    this.totpFailedAttempts++;
-    this.updatedAt = now;
-}
+	public Instant getTotpLockedUntil() {
+		return totpLockedUntil;
+	}
 
-public void lockTotpUntil(Instant lockedUntil, Instant now) {
-    this.totpLockedUntil = lockedUntil;
-    this.updatedAt = now;
-}
+	public void enableTotp(String encryptedSecret, Instant now) {
+		this.totpSecretEncrypted = encryptedSecret;
+		this.totpEnabled = true;
+		this.totpFailedAttempts = 0;
+		this.totpLockedUntil = null;
+		this.updatedAt = now;
+	}
 
-public void clearTotpFailures(Instant now) {
-    this.totpFailedAttempts = 0;
-    this.totpLockedUntil = null;
-    this.updatedAt = now;
-}
+	public boolean isTotpLockedAt(Instant now) {
+		return totpLockedUntil != null && totpLockedUntil.isAfter(now);
+	}
+
+	public void recordTotpFailure(Instant now) {
+		totpFailedAttempts++;
+		updatedAt = now;
+	}
+
+	public void lockTotpUntil(Instant lockedUntil, Instant now) {
+		this.totpLockedUntil = lockedUntil;
+		updatedAt = now;
+	}
+
+	public void clearTotpFailures(Instant now) {
+		totpFailedAttempts = 0;
+		totpLockedUntil = null;
+		updatedAt = now;
+	}
 
 	protected User() {
 	}

@@ -261,18 +261,3 @@ Consulte antes de implementar:
 * `docs/standards/api.md`
 * `docs/standards/coding.md`
 * `docs/product/roadmap.md`
-
-## Prompt recomendado para o agente
-
-Implemente completamente a tarefa AUTH-01 seguindo `docs/ai/AGENTS.md`, `docs/ai/CONTEXT.md`, `docs/architecture/backend.md`, `docs/security/security-overview.md`, `docs/standards/api.md` e este arquivo.
-
-Implemente um endpoint seguro de cadastro de usuário usando Argon2id seguindo baseline mínima OWASP.
-
-Não implemente login, JWT, sessões, TOTP, passkeys ou qualquer autenticação além do cadastro.
-
-Ao final:
-
-* informe os arquivos criados/alterados
-* explique como testar o endpoint
-* explique como validar o hash Argon2id salvo no banco
-* explique como validar os erros de senha fraca

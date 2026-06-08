@@ -1,12 +1,17 @@
-import axios from 'axios'
-
 import { api } from './api'
+import { authResponseSchema } from '../schemas/apiSchemas'
 import type {
-  ApiErrorResponse,
+  AuthResponse,
   AuthMessageResponse,
   LoginRequest,
   RegisterUserRequest,
 } from '../types/auth'
+import {
+  clearAccessToken,
+  setAccessToken,
+  setAuthSession,
+} from '../utils/authTokenStore'
+import { InvalidApiResponseError, parseApiError } from '../utils/parseApiError'
 
 export async function registerUser(
   payload: RegisterUserRequest,
@@ -17,30 +22,53 @@ export async function registerUser(
 
 export async function loginUser(
   payload: LoginRequest,
-): Promise<AuthMessageResponse> {
-  const response = await api.post<AuthMessageResponse>('/auth/login', payload)
-  return response.data
+): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/login', payload)
+  const parsedResponse = parseAuthResponse(response.data)
+  setAuthSession(parsedResponse.accessToken, payload.email)
+  return parsedResponse
+}
+
+export async function refreshSession(): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/refresh')
+  const parsedResponse = parseAuthResponse(response.data)
+  setAccessToken(parsedResponse.accessToken)
+  return parsedResponse
+}
+
+export async function logoutUser(): Promise<AuthMessageResponse> {
+  try {
+    const response = await api.post<AuthMessageResponse>('/auth/logout')
+    return response.data
+  } finally {
+    clearAccessToken()
+  }
 }
 
 export function getAuthErrorMessage(error: unknown, fallbackMessage: string) {
-  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
-    return 'Nao foi possivel conectar ao servidor. Tente novamente.'
-  }
+  const apiError = parseApiError(error, fallbackMessage)
 
-  const status = error.response?.status
-  const apiError = error.response?.data
-
-  if (status === 401) {
+  if (apiError.status === 401) {
     return 'Credenciais invalidas.'
   }
 
-  if (status === 429) {
+  if (apiError.status === 429) {
     return 'Muitas tentativas. Tente novamente em instantes.'
   }
 
-  if (status === 400) {
+  if (apiError.status === 400) {
     return apiError?.fields?.[0]?.message ?? apiError?.message ?? fallbackMessage
   }
 
   return apiError?.message ?? fallbackMessage
+}
+
+function parseAuthResponse(data: unknown): AuthResponse {
+  const parsedResponse = authResponseSchema.safeParse(data)
+
+  if (!parsedResponse.success) {
+    throw new InvalidApiResponseError()
+  }
+
+  return parsedResponse.data
 }
