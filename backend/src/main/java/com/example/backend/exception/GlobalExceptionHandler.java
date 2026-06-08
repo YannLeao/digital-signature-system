@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PdfValidationException.class)
     public ResponseEntity<ApiErrorResponse> handlePdfValidation(PdfValidationException exception) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_001, exception.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.DOC_001, exception.getMessage());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
