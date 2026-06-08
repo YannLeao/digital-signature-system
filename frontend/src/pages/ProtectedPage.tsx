@@ -18,6 +18,12 @@ export function ProtectedPage() {
       >
         Gerenciar passkeys
       </Link>
+      <Link
+        className="ml-3 mt-6 inline-flex rounded-lg border border-[#374151] px-4 py-2 text-sm font-medium text-[#D1D5DB] transition hover:border-[#06B6D4] hover:text-white"
+        to="/settings/2fa"
+      >
+        Configurar 2FA
+      </Link>
     </section>
   )
 }

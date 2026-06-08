@@ -22,12 +22,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getAccessToken(),
   )
   const [email, setEmail] = useState<string | null>(() => getAuthenticatedEmail())
+  const [isTwoFactorPending, setIsTwoFactorPending] = useState(false)
 
   useEffect(
     () =>
       subscribeToAccessToken((session) => {
         setAccessTokenState(session.accessToken)
         setEmail(session.email)
+        setIsTwoFactorPending(Boolean(session.twoFactorToken))
       }),
     [],
   )
@@ -37,6 +39,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       accessToken,
       email,
       isAuthenticated: Boolean(accessToken),
+      isTwoFactorPending,
       login: loginUser,
       logout: async () => {
         await logoutUser()
@@ -44,7 +47,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refresh: refreshSession,
       register: registerUser,
     }),
-    [accessToken, email],
+    [accessToken, email, isTwoFactorPending],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -28,7 +28,7 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 
 - [x] TOTP-01 - Ativacao do 2FA
 - [x] TOTP-02 - Validacao TOTP no login
-- [ ] TOTP-03 - UI de ativacao e verificacao
+- [x] TOTP-03 - UI de ativacao e verificacao
 
 ## EPIC-04 - JWT e Refresh Tokens
 

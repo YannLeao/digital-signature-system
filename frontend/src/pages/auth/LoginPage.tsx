@@ -7,11 +7,11 @@ import { AuthCard } from '../../components/auth/AuthCard'
 import { AuthFormField } from '../../components/auth/AuthFormField'
 import { useAuth } from '../../hooks/useAuth'
 import { loginSchema, type LoginFormData } from '../../schemas/authSchemas'
+import { getAuthErrorMessage } from '../../services/authService'
 import {
   finishPasskeyAuthentication,
   startPasskeyAuthentication,
 } from '../../services/passkeyService'
-import { getAuthErrorMessage } from '../../services/authService'
 import {
   isConditionalUiSupported,
   isUserCancellation,
@@ -54,7 +54,7 @@ export function LoginPage() {
         setSupportsConditionalUi(isSupported)
         setPasskeyStatus(
           isSupported
-            ? 'Passkey disponível pelo preenchimento automático do e-mail.'
+            ? 'Passkey disponivel pelo preenchimento automatico do e-mail.'
             : null,
         )
       }
@@ -69,49 +69,55 @@ export function LoginPage() {
     setApiError(null)
 
     try {
-      await login(data)
+      const response = await login(data)
+
+      if (response.requiresTwoFactor) {
+        navigate('/two-factor', { replace: true })
+        return
+      }
+
       navigate('/', {
         replace: true,
         state: { authMessage: 'Login realizado com sucesso.' },
       })
     } catch (error) {
-      setApiError(getAuthErrorMessage(error, 'Não foi possível entrar.'))
+      setApiError(getAuthErrorMessage(error, 'Nao foi possivel entrar.'))
     }
   }
 
   const authenticateWithConditionalUi = useCallback(
     async (email: string, signal: AbortSignal) => {
-    try {
-      const options = await startPasskeyAuthentication({ email })
+      try {
+        const options = await startPasskeyAuthentication({ email })
 
-      if (signal.aborted) {
-        return
+        if (signal.aborted) {
+          return
+        }
+
+        const credential = await navigator.credentials.get(
+          toCredentialRequestOptions(options, 'conditional', signal),
+        )
+
+        if (!(credential instanceof PublicKeyCredential)) {
+          return
+        }
+
+        await finishPasskeyAuthentication({
+          credential: serializeAuthenticationCredential(credential),
+          email,
+        })
+        navigate('/', {
+          replace: true,
+          state: { authMessage: 'Login com passkey realizado com sucesso.' },
+        })
+      } catch (error) {
+        if (signal.aborted || isUserCancellation(error)) {
+          return
+        }
+
+        setPasskeyStatus(null)
+        setApiError(getAuthErrorMessage(error, 'Nao foi possivel usar a passkey.'))
       }
-
-      const credential = await navigator.credentials.get(
-        toCredentialRequestOptions(options, 'conditional', signal),
-      )
-
-      if (!(credential instanceof PublicKeyCredential)) {
-        return
-      }
-
-      await finishPasskeyAuthentication({
-        credential: serializeAuthenticationCredential(credential),
-        email,
-      })
-      navigate('/', {
-        replace: true,
-        state: { authMessage: 'Login com passkey realizado com sucesso.' },
-      })
-    } catch (error) {
-      if (signal.aborted || isUserCancellation(error)) {
-        return
-      }
-
-      setPasskeyStatus(null)
-      setApiError(getAuthErrorMessage(error, 'Não foi possível usar a passkey.'))
-    }
     },
     [navigate],
   )
@@ -142,7 +148,7 @@ export function LoginPage() {
     <AuthCard
       footer={
         <span>
-          Ainda não tem conta?{' '}
+          Ainda nao tem conta?{' '}
           <Link
             className="font-medium text-[#06B6D4] hover:text-cyan-300"
             to="/register"
