@@ -23,80 +23,85 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-	private final Clock clock;
+    private final Clock clock;
 
-	public GlobalExceptionHandler() {
-		this(Clock.systemUTC());
-	}
+    public GlobalExceptionHandler() {
+        this(Clock.systemUTC());
+    }
 
-	GlobalExceptionHandler(Clock clock) {
-		this.clock = clock;
-	}
+    GlobalExceptionHandler(Clock clock) {
+        this.clock = clock;
+    }
 
-	@ExceptionHandler(MethodArgumentNotValidException.class)
-	public ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
-		List<FieldErrorResponse> fields = exception.getBindingResult()
-				.getFieldErrors()
-				.stream()
-				.sorted(Comparator.comparing(FieldError::getField))
-				.map(error -> new FieldErrorResponse(error.getField(), resolveFieldMessage(error)))
-				.toList();
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
+        List<FieldErrorResponse> fields = exception.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .sorted(Comparator.comparing(FieldError::getField))
+                .map(error -> new FieldErrorResponse(error.getField(), resolveFieldMessage(error)))
+                .toList();
 
-		return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_001, fields);
-	}
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_001, fields);
+    }
 
-	@ExceptionHandler({
-			ConstraintViolationException.class,
-			MissingServletRequestParameterException.class,
-			MethodArgumentTypeMismatchException.class
-	})
-	public ResponseEntity<ApiErrorResponse> handleInvalidParameter(Exception exception) {
-		return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_002);
-	}
+    @ExceptionHandler({
+            ConstraintViolationException.class,
+            MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleInvalidParameter(Exception exception) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_002);
+    }
 
-	@ExceptionHandler(ApiException.class)
-	public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception) {
-		return buildResponse(exception.status(), exception.code(), exception.getMessage());
-	}
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception) {
+        return buildResponse(exception.status(), exception.code(), exception.getMessage());
+    }
 
-	@ExceptionHandler(NoResourceFoundException.class)
-	public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException exception) {
-		return buildResponse(HttpStatus.NOT_FOUND, ApiErrorCode.SYS_002);
-	}
+    @ExceptionHandler(PdfValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handlePdfValidation(PdfValidationException exception) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VAL_001, exception.getMessage());
+    }
 
-	@ExceptionHandler(Exception.class)
-	public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception exception) {
-		LOGGER.error("Unexpected API error", exception);
-		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.SYS_001);
-	}
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException exception) {
+        return buildResponse(HttpStatus.NOT_FOUND, ApiErrorCode.SYS_002);
+    }
 
-	private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ApiErrorCode code) {
-		return buildResponse(status, code, code.defaultMessage());
-	}
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception exception) {
+        LOGGER.error("Unexpected API error", exception);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.SYS_001);
+    }
 
-	private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ApiErrorCode code, String message) {
-		return ResponseEntity.status(status)
-				.body(ApiErrorResponse.of(code.name(), message, Instant.now(clock)));
-	}
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ApiErrorCode code) {
+        return buildResponse(status, code, code.defaultMessage());
+    }
 
-	private ResponseEntity<ApiErrorResponse> buildResponse(
-			HttpStatus status,
-			ApiErrorCode code,
-			List<FieldErrorResponse> fields
-	) {
-		return ResponseEntity.status(status)
-				.body(ApiErrorResponse.withFields(code.name(), code.defaultMessage(), Instant.now(clock), fields));
-	}
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, ApiErrorCode code, String message) {
+        return ResponseEntity.status(status)
+                .body(ApiErrorResponse.of(code.name(), message, Instant.now(clock)));
+    }
 
-	private String resolveFieldMessage(FieldError error) {
-		String defaultMessage = error.getDefaultMessage();
+    private ResponseEntity<ApiErrorResponse> buildResponse(
+            HttpStatus status,
+            ApiErrorCode code,
+            List<FieldErrorResponse> fields
+    ) {
+        return ResponseEntity.status(status)
+                .body(ApiErrorResponse.withFields(code.name(), code.defaultMessage(), Instant.now(clock), fields));
+    }
 
-		if (defaultMessage == null || defaultMessage.isBlank()) {
-			return "Campo invalido.";
-		}
+    private String resolveFieldMessage(FieldError error) {
+        String defaultMessage = error.getDefaultMessage();
 
-		return defaultMessage;
-	}
+        if (defaultMessage == null || defaultMessage.isBlank()) {
+            return "Campo invalido.";
+        }
+
+        return defaultMessage;
+    }
 }
