@@ -1,9 +1,11 @@
 package com.example.backend.controller.auth;
 
 import com.example.backend.domain.User;
+import com.example.backend.repository.DocumentSignatureRepository;
 import com.example.backend.repository.JwtDenylistRepository;
 import com.example.backend.repository.PasskeyRepository;
 import com.example.backend.repository.TotpBackupCodeRepository;
+import com.example.backend.repository.UserKeyRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.JwtLogoutService;
@@ -52,6 +54,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"WEBAUTHN_RP_ID=localhost",
 		"WEBAUTHN_RP_NAME=Projeto_Seguranca",
 		"WEBAUTHN_ORIGIN=http://localhost:5173",
+		"USER_KEY_ENCRYPTION_KEY_BASE64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"app.user-key.encryption-key-base64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 class AuthSecurityTests {
@@ -97,6 +101,14 @@ class AuthSecurityTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private TotpBackupCodeRepository totpBackupCodeRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private UserKeyRepository userKeyRepository;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private DocumentSignatureRepository documentSignatureRepository;
 
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {

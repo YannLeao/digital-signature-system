@@ -43,7 +43,7 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 
 ## EPIC-06 - Assinatura Digital de PDFs
 
-- [ ] SIGN-01 - Geracao e armazenamento de par de chaves
+- [x] SIGN-01 - Geracao e armazenamento de par de chaves
 - [ ] SIGN-02 - Assinatura criptografica embutida no PDF
 - [ ] SIGN-03 - Tela de upload e posicionamento do selo
 - [ ] SIGN-04 - Validacao e sanitizacao de PDFs
