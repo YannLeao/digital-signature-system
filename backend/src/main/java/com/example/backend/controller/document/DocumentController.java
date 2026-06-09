@@ -2,11 +2,12 @@ package com.example.backend.controller.document;
 
 import com.example.backend.domain.User;
 import com.example.backend.dto.document.SignDocumentRequest;
-import com.example.backend.dto.document.SignDocumentResponse;
+import com.example.backend.dto.document.SignedPdfResult;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.document.PdfSigningService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,31 +26,40 @@ import java.util.UUID;
 public class DocumentController {
 
     private final PdfSigningService pdfSigningService;
-    private final UserRepository    userRepository;
+    private final UserRepository userRepository;
 
     public DocumentController(PdfSigningService pdfSigningService,
-                               UserRepository userRepository) {
+                              UserRepository userRepository) {
         this.pdfSigningService = pdfSigningService;
-        this.userRepository    = userRepository;
+        this.userRepository = userRepository;
     }
 
     @PostMapping(value = "sign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<SignDocumentResponse> sign(
-            @RequestPart("file")    MultipartFile file,
+    public ResponseEntity<byte[]> sign(
+            @RequestPart("file") MultipartFile file,
             @RequestPart("request") @Valid SignDocumentRequest request,
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest servletRequest) {
 
         UUID userId = UUID.fromString(jwt.getSubject());
-
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("Usuário não encontrado."));
+                .orElseThrow(() -> new IllegalStateException("Usuario nao encontrado."));
 
-        SignDocumentResponse response = pdfSigningService.sign(
-                file, request, user,
+        SignedPdfResult result = pdfSigningService.sign(
+                file,
+                request,
+                user,
                 servletRequest.getRemoteAddr(),
-                Instant.now());
+                Instant.now()
+        );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"signed-document.pdf\"")
+                .header("X-Signature-Id", result.signatureId().toString())
+                .header("X-Original-Hash", result.originalHash())
+                .header("X-Signed-Hash", result.signedHash())
+                .header("X-Signed-At", result.signedAt().toString())
+                .body(result.pdfBytes());
     }
 }

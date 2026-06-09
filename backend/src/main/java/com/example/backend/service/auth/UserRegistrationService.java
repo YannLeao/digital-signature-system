@@ -4,6 +4,7 @@ import com.example.backend.domain.User;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.service.signature.UserKeyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;

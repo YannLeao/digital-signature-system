@@ -4,7 +4,7 @@ import com.example.backend.domain.DocumentSignature;
 import com.example.backend.domain.User;
 import com.example.backend.domain.UserKey;
 import com.example.backend.dto.document.SignDocumentRequest;
-import com.example.backend.dto.document.SignDocumentResponse;
+import com.example.backend.dto.document.SignedPdfResult;
 import com.example.backend.exception.PdfValidationException;
 import com.example.backend.repository.DocumentSignatureRepository;
 import com.example.backend.repository.UserKeyRepository;
@@ -13,24 +13,49 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
-import java.security.Signature;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -38,182 +63,256 @@ public class PdfSigningService {
 
     private static final DateTimeFormatter TIMESTAMP_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
+    private static final float SEAL_WIDTH = 310;
+    private static final float SEAL_HEIGHT = 70;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private final PdfValidatorService            pdfValidatorService;
-    private final UserKeyRepository              userKeyRepository;
-    private final UserKeyEncryptionService       encryptionService;
-    private final DocumentSignatureRepository    signatureRepository;
+    static {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+    }
+
+    private final PdfValidatorService pdfValidatorService;
+    private final UserKeyRepository userKeyRepository;
+    private final UserKeyEncryptionService encryptionService;
+    private final DocumentSignatureRepository signatureRepository;
 
     public PdfSigningService(PdfValidatorService pdfValidatorService,
-                              UserKeyRepository userKeyRepository,
-                              UserKeyEncryptionService encryptionService,
-                              DocumentSignatureRepository signatureRepository) {
-        this.pdfValidatorService  = pdfValidatorService;
-        this.userKeyRepository    = userKeyRepository;
-        this.encryptionService    = encryptionService;
-        this.signatureRepository  = signatureRepository;
+                             UserKeyRepository userKeyRepository,
+                             UserKeyEncryptionService encryptionService,
+                             DocumentSignatureRepository signatureRepository) {
+        this.pdfValidatorService = pdfValidatorService;
+        this.userKeyRepository = userKeyRepository;
+        this.encryptionService = encryptionService;
+        this.signatureRepository = signatureRepository;
     }
 
     @Transactional
-    public SignDocumentResponse sign(MultipartFile file,
-                                     SignDocumentRequest request,
-                                     User user,
-                                     String originIp,
-                                     Instant now) {
-        // 1. Validar PDF
+    public SignedPdfResult sign(MultipartFile file,
+                                SignDocumentRequest request,
+                                User user,
+                                String originIp,
+                                Instant now) {
         byte[] originalBytes = pdfValidatorService.validateAndRead(file);
-
-        // 2. Hash SHA-256 do documento original
         String originalHash = sha256Hex(originalBytes);
 
-        // 3. Buscar par de chaves do usuário
         UserKey userKey = userKeyRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Par de chaves não encontrado para o usuário."));
+                .orElseThrow(() -> new IllegalStateException("Par de chaves nao encontrado para o usuario."));
 
-        // 4. Descriptografar chave privada
-        String privateKeyB64  = encryptionService.decrypt(userKey.getEncryptedPrivateKey());
+        String privateKeyB64 = encryptionService.decrypt(userKey.getEncryptedPrivateKey());
         PrivateKey privateKey = decodePrivateKey(privateKeyB64, userKey.getKeyAlgorithm());
+        PublicKey publicKey = decodePublicKey(userKey.getPublicKey(), userKey.getKeyAlgorithm());
 
-        // 5. Gerar ID único da assinatura
         UUID signatureId = UUID.randomUUID();
-
-        // 6. Embutir selo visual no PDF em memória
         byte[] sealedBytes = embedSeal(
                 originalBytes, user, originalHash, signatureId, now,
                 request.sealPage(), request.sealX(), request.sealY());
+        byte[] signedPdfBytes = embedPdfSignature(sealedBytes, user, publicKey, privateKey, userKey.getKeyAlgorithm(), now);
+        String signedHash = sha256Hex(signedPdfBytes);
 
-        // 7. Assinar os bytes do PDF selado
-        signBytes(sealedBytes, privateKey, userKey.getKeyAlgorithm());
-
-        // 8. Hash SHA-256 do documento assinado
-        String signedHash = sha256Hex(sealedBytes);
-
-        // 9. Registrar no banco
         DocumentSignature record = DocumentSignature.create(
-                user, originalHash, signedHash, signatureId,
+                user,
+                originalHash,
+                signedHash,
+                signatureId,
                 userKey.getKeyAlgorithm(),
                 request.sealPage(),
                 request.sealX(),
                 request.sealY(),
-                originIp, now);
+                originIp,
+                now
+        );
         signatureRepository.save(record);
 
-        return new SignDocumentResponse(
-                signatureId,
-                originalHash,
-                signedHash,
-                TIMESTAMP_FMT.format(now));
+        return new SignedPdfResult(signedPdfBytes, signatureId, originalHash, signedHash, now);
     }
-
-    // -------------------------------------------------------------------------
 
     private byte[] embedSeal(byte[] pdfBytes, User user, String docHash,
-                               UUID signatureId, Instant now,
-                               int sealPage, BigDecimal sealX, BigDecimal sealY) {
-        try (PDDocument doc = Loader.loadPDF(pdfBytes);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                             UUID signatureId, Instant now,
+                             int sealPage, BigDecimal sealX, BigDecimal sealY) {
+        try (PDDocument document = Loader.loadPDF(pdfBytes);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
 
             int pageIndex = sealPage - 1;
-            if (pageIndex < 0 || pageIndex >= doc.getNumberOfPages()) {
-                throw new PdfValidationException("VAL_001",
-                        "Página do selo inválida: o PDF possui " +
-                        doc.getNumberOfPages() + " página(s).");
+            if (pageIndex < 0 || pageIndex >= document.getNumberOfPages()) {
+                throw new PdfValidationException("DOC_001",
+                        "Pagina do selo invalida: o PDF possui " + document.getNumberOfPages() + " pagina(s).");
             }
 
-            PDPage page = doc.getPage(pageIndex);
+            PDPage page = document.getPage(pageIndex);
+            float x = sealX.floatValue();
+            float y = sealY.floatValue();
+            validateSealPosition(page, x, y);
 
-            try (PDPageContentStream cs = new PDPageContentStream(
-                    doc, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+            try (PDPageContentStream contentStream = new PDPageContentStream(
+                    document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
 
-                PDType1Font font      = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-                PDType1Font fontBold  = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                PDType1Font font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+                PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                String signer = pdfValidatorService.sanitizeText(user.getEmail());
 
-                float x = sealX.floatValue();
-                float y = sealY.floatValue();
+                contentStream.setNonStrokingColor(0.95f, 0.95f, 0.95f);
+                contentStream.addRect(x - 5, y - 55, SEAL_WIDTH, SEAL_HEIGHT);
+                contentStream.fill();
 
-                // Fundo do selo
-                cs.setNonStrokingColor(0.95f, 0.95f, 0.95f);
-                cs.addRect(x - 5, y - 55, 310, 70);
-                cs.fill();
+                contentStream.setStrokingColor(0.3f, 0.3f, 0.3f);
+                contentStream.setLineWidth(0.5f);
+                contentStream.addRect(x - 5, y - 55, SEAL_WIDTH, SEAL_HEIGHT);
+                contentStream.stroke();
 
-                // Borda do selo
-                cs.setStrokingColor(0.3f, 0.3f, 0.3f);
-                cs.setLineWidth(0.5f);
-                cs.addRect(x - 5, y - 55, 310, 70);
-                cs.stroke();
-
-                // Linha 1 — Assinante
-                cs.beginText();
-                cs.setFont(fontBold, 7);
-                cs.newLineAtOffset(x, y + 8);
-                cs.showText("Assinado digitalmente por: " + user.getEmail());
-                cs.endText();
-
-                // Linha 2 — Data/hora
-                cs.beginText();
-                cs.setFont(font, 7);
-                cs.newLineAtOffset(x, y - 4);
-                cs.showText("Data/Hora UTC: " + TIMESTAMP_FMT.format(now));
-                cs.endText();
-
-                // Linha 3 — Hash do documento
-                cs.beginText();
-                cs.setFont(font, 6);
-                cs.newLineAtOffset(x, y - 16);
-                cs.showText("Hash SHA-256: " + docHash.substring(0, 32) + "...");
-                cs.endText();
-
-                // Linha 4 — ID da assinatura
-                cs.beginText();
-                cs.setFont(font, 6);
-                cs.newLineAtOffset(x, y - 28);
-                cs.showText("ID da assinatura: " + signatureId);
-                cs.endText();
+                writeText(contentStream, fontBold, 7, x, y + 8, "Assinado digitalmente por: " + signer);
+                writeText(contentStream, font, 7, x, y - 4, "Data/Hora UTC: " + TIMESTAMP_FMT.format(now));
+                writeText(contentStream, font, 6, x, y - 16, "Hash SHA-256: " + docHash.substring(0, 32) + "...");
+                writeText(contentStream, font, 6, x, y - 28, "ID da assinatura: " + signatureId);
             }
 
-            doc.save(out);
-            return out.toByteArray();
-
-        } catch (PdfValidationException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Erro ao embutir selo visual no PDF.", e);
+            document.save(output);
+            return output.toByteArray();
+        } catch (PdfValidationException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao embutir selo visual no PDF.", exception);
         }
     }
 
-    private byte[] signBytes(byte[] data, PrivateKey privateKey, String algorithm) {
-        try {
-            String sigAlgorithm = "RSA".equalsIgnoreCase(algorithm)
-                    ? "SHA256withRSA"
-                    : "SHA256withECDSA";
-
-            Signature sig = Signature.getInstance(sigAlgorithm);
-            sig.initSign(privateKey);
-            sig.update(data);
-            return sig.sign();
-        } catch (Exception e) {
-            throw new IllegalStateException("Erro ao assinar o documento.", e);
+    private void validateSealPosition(PDPage page, float x, float y) {
+        PDRectangle mediaBox = page.getMediaBox();
+        if (x < 5 || y < 55 || x - 5 + SEAL_WIDTH > mediaBox.getWidth() || y - 55 + SEAL_HEIGHT > mediaBox.getHeight()) {
+            throw new PdfValidationException("DOC_001", "Posicao do selo invalida.");
         }
+    }
+
+    private void writeText(PDPageContentStream contentStream, PDType1Font font, float size, float x, float y, String text)
+            throws java.io.IOException {
+        contentStream.beginText();
+        contentStream.setFont(font, size);
+        contentStream.newLineAtOffset(x, y);
+        contentStream.showText(text);
+        contentStream.endText();
+    }
+
+    private byte[] embedPdfSignature(byte[] pdfBytes,
+                                     User user,
+                                     PublicKey publicKey,
+                                     PrivateKey privateKey,
+                                     String keyAlgorithm,
+                                     Instant now) {
+        try (PDDocument document = Loader.loadPDF(pdfBytes);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+
+            X509Certificate certificate = selfSignedCertificate(user, publicKey, privateKey, keyAlgorithm, now);
+
+            PDSignature signature = new PDSignature();
+            signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
+            signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
+            signature.setName(pdfValidatorService.sanitizeText(user.getEmail()));
+            signature.setReason("Assinatura digital do documento");
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(Date.from(now));
+            signature.setSignDate(calendar);
+
+            document.addSignature(signature, content -> buildCmsSignature(content, certificate, privateKey, keyAlgorithm));
+            document.saveIncremental(output);
+            return output.toByteArray();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao assinar o documento.", exception);
+        }
+    }
+
+    private byte[] buildCmsSignature(InputStream content,
+                                     X509Certificate certificate,
+                                     PrivateKey privateKey,
+                                     String keyAlgorithm) {
+        try {
+            String signatureAlgorithm = "RSA".equalsIgnoreCase(keyAlgorithm) ? "SHA256withRSA" : "SHA256withECDSA";
+            ContentSigner signer = new JcaContentSignerBuilder(signatureAlgorithm)
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                    .build(privateKey);
+
+            CMSTypedData cmsData = new CMSProcessableByteArray(content.readAllBytes());
+            CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
+            generator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(
+                    new JcaDigestCalculatorProviderBuilder()
+                            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                            .build()
+            ).build(signer, certificate));
+            generator.addCertificates(new JcaCertStore(List.of(certificate)));
+
+            CMSSignedData signedData = generator.generate(cmsData, false);
+            return signedData.getEncoded();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao gerar assinatura CMS do PDF.", exception);
+        }
+    }
+
+    private X509Certificate selfSignedCertificate(User user,
+                                                  PublicKey publicKey,
+                                                  PrivateKey privateKey,
+                                                  String keyAlgorithm,
+                                                  Instant now) {
+        try {
+            String signatureAlgorithm = "RSA".equalsIgnoreCase(keyAlgorithm) ? "SHA256withRSA" : "SHA256withECDSA";
+            X500Name subject = new X500Name("CN=" + sanitizeCertificateName(user.getEmail()));
+            BigInteger serial = new BigInteger(128, SECURE_RANDOM).abs().add(BigInteger.ONE);
+            Date notBefore = Date.from(now.minusSeconds(60));
+            Date notAfter = Date.from(now.plusSeconds(10L * 365 * 24 * 60 * 60));
+
+            ContentSigner signer = new JcaContentSignerBuilder(signatureAlgorithm)
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                    .build(privateKey);
+            X509CertificateHolder holder = new JcaX509v3CertificateBuilder(
+                    subject,
+                    serial,
+                    notBefore,
+                    notAfter,
+                    subject,
+                    publicKey
+            ).build(signer);
+
+            return new JcaX509CertificateConverter()
+                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                    .getCertificate(holder);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao criar certificado de assinatura do PDF.", exception);
+        }
+    }
+
+    private String sanitizeCertificateName(String value) {
+        String sanitized = pdfValidatorService.sanitizeText(value);
+        return sanitized == null || sanitized.isBlank() ? "Usuario" : sanitized.replaceAll("[,=+<>#;\\\\\"]", "");
     }
 
     private PrivateKey decodePrivateKey(String base64Key, String algorithm) {
         try {
             byte[] keyBytes = Base64.getDecoder().decode(base64Key);
             PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-            String jcaAlgorithm = "RSA".equalsIgnoreCase(algorithm) ? "RSA" : "EC";
-            return KeyFactory.getInstance(jcaAlgorithm).generatePrivate(spec);
-        } catch (Exception e) {
-            throw new IllegalStateException("Erro ao decodificar chave privada.", e);
+            return KeyFactory.getInstance(jcaAlgorithm(algorithm)).generatePrivate(spec);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao decodificar chave privada.", exception);
         }
+    }
+
+    private PublicKey decodePublicKey(String base64Key, String algorithm) {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            return KeyFactory.getInstance(jcaAlgorithm(algorithm)).generatePublic(spec);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao decodificar chave publica.", exception);
+        }
+    }
+
+    private String jcaAlgorithm(String algorithm) {
+        return "RSA".equalsIgnoreCase(algorithm) ? "RSA" : "EC";
     }
 
     private String sha256Hex(byte[] data) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(data);
             return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("Erro ao calcular hash SHA-256.", e);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Erro ao calcular hash SHA-256.", exception);
         }
     }
 }

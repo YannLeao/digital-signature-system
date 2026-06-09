@@ -4,6 +4,7 @@ import com.example.backend.domain.User;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.service.signature.UserKeyService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,6 +53,7 @@ class UserRegistrationServiceTests {
         assertThat(savedUser.getUpdatedAt()).isEqualTo(NOW);
         assertThat(savedUser.getFailedAttempts()).isZero();
         assertThat(savedUser.getLockedUntil()).isNull();
+        verify(userKeyService).generateAndStoreKeyPair(savedUser, NOW);
     }
 
     @Test
@@ -63,6 +65,7 @@ class UserRegistrationServiceTests {
                 .hasMessage("E-mail ja cadastrado.");
 
         verify(userRepository, never()).save(any(User.class));
+        verify(userKeyService, never()).generateAndStoreKeyPair(any(), any());
     }
 
     @Test
@@ -73,5 +76,6 @@ class UserRegistrationServiceTests {
         assertThatThrownBy(() -> service.register(new RegisterUserRequest("user@example.com", "StrongPassword123!")))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("E-mail ja cadastrado.");
+        verify(userKeyService, never()).generateAndStoreKeyPair(any(), any());
     }
 }
