@@ -14,6 +14,12 @@ export function ProtectedPage() {
       </p>
       <Link
         className="mt-6 inline-flex rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-400"
+        to="/documents/sign"
+      >
+        Assinar PDF
+      </Link>
+      <Link
+        className="ml-3 mt-6 inline-flex rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-400"
         to="/security/passkeys"
       >
         Gerenciar passkeys

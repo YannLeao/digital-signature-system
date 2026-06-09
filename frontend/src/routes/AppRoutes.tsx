@@ -5,6 +5,7 @@ import { LoginPage } from '../pages/auth/LoginPage'
 import { RegisterPage } from '../pages/auth/RegisterPage'
 import { HomePage } from '../pages/HomePage'
 import { ProtectedPage } from '../pages/ProtectedPage'
+import { SignDocumentPage } from '../pages/documents/SignDocumentPage'
 import { PasskeysPage } from '../pages/security/PasskeysPage'
 import { TotpVerifyPage } from '../pages/security/TotpVerifyPage'
 import { TwoFactorPage } from '../pages/security/TwoFactorPage'
@@ -20,6 +21,7 @@ export function AppRoutes() {
         <Route element={<TotpVerifyPage />} path="/two-factor" />
         <Route element={<PrivateRoute />}>
           <Route element={<ProtectedPage />} path="/app" />
+          <Route element={<SignDocumentPage />} path="/documents/sign" />
           <Route element={<PasskeysPage />} path="/security/passkeys" />
           <Route element={<TwoFactorPage />} path="/settings/2fa" />
         </Route>
