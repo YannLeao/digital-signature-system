@@ -119,6 +119,20 @@ class SecurityCorsTests {
 	}
 
 	@Test
+	void exposesDocumentSignatureHeadersToBrowser() throws Exception {
+		mockMvc.perform(options("/api/v1/documents/sign")
+						.servletPath("/api/v1")
+						.header("Origin", "http://localhost:5173")
+						.header("Access-Control-Request-Method", "POST")
+						.header("Access-Control-Request-Headers", "Authorization, X-CSRF-Token, Content-Type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signature-Id")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Original-Hash")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signed-Hash")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signed-At")));
+	}
+
+	@Test
 	void doesNotReturnPermissiveCorsHeadersForUnknownOriginPreflight() throws Exception {
 		mockMvc.perform(options("/api/v1/health")
 						.servletPath("/api/v1")

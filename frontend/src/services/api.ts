@@ -29,6 +29,14 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 }
 
 const mutatingMethods = new Set(['post', 'put', 'patch', 'delete'])
+const csrfExemptPaths = new Set([
+  '/auth/register',
+  '/auth/login',
+  '/auth/passkey/register/start',
+  '/auth/passkey/register/finish',
+  '/auth/passkey/auth/start',
+  '/auth/passkey/auth/finish',
+])
 let refreshRequest: Promise<string | null> | null = null
 
 export const api = axios.create({
@@ -43,13 +51,12 @@ export const api = axios.create({
 api.interceptors.request.use(async (config) => {
   const headers = AxiosHeaders.from(config.headers)
   const token = authorizationTokenFor(config.url ?? '')
-  const method = config.method?.toLowerCase() ?? 'get'
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  if (mutatingMethods.has(method)) {
+  if (shouldAttachCsrfToken(config)) {
     const csrfToken = await ensureCsrfToken()
 
     if (csrfToken) {
@@ -153,10 +160,22 @@ function shouldRefreshAccessToken(config: RetriableRequestConfig): boolean {
   )
 }
 
-function shouldRetryCsrf(config: RetriableRequestConfig): boolean {
+function shouldAttachCsrfToken(config: InternalAxiosRequestConfig): boolean {
   const method = config.method?.toLowerCase() ?? 'get'
 
-  return !config._retryCsrf && mutatingMethods.has(method)
+  return mutatingMethods.has(method) && !csrfExemptPaths.has(pathnameFor(config.url ?? ''))
+}
+
+function shouldRetryCsrf(config: RetriableRequestConfig): boolean {
+  return !config._retryCsrf && shouldAttachCsrfToken(config)
+}
+
+function pathnameFor(url: string): string {
+  try {
+    return new URL(url, env.VITE_API_BASE_URL).pathname.replace(/^\/api\/v1/, '')
+  } catch {
+    return url.replace(/^\/api\/v1/, '')
+  }
 }
 
 function parseRefreshResponse(data: unknown): RefreshResponse | null {

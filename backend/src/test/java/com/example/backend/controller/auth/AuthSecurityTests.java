@@ -12,10 +12,12 @@ import com.example.backend.security.JwtLogoutService;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenPair;
+import com.example.backend.service.document.PdfSigningService;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
+import com.example.backend.dto.document.SignedPdfResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -27,11 +29,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -109,6 +113,9 @@ class AuthSecurityTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private DocumentSignatureRepository documentSignatureRepository;
+
+	@MockitoBean
+	private PdfSigningService pdfSigningService;
 
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {
@@ -195,6 +202,71 @@ class AuthSecurityTests {
 				.andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
 
 		org.mockito.Mockito.verify(jwtLogoutService).logout(jwt);
+	}
+
+	@Test
+	void rejectsVersionedDocumentSigningWithoutCsrfToken() throws Exception {
+		Jwt jwt = jwt();
+		when(jwtValidator.validateAccessToken("access-token")).thenReturn(jwt);
+
+		mockMvc.perform(multipart("/api/v1/documents/sign")
+						.file("file", "%PDF-".getBytes())
+						.file("request", """
+								{"sealPage":1,"sealX":10,"sealY":70}
+								""".getBytes())
+						.servletPath("/api/v1")
+						.header("Authorization", "Bearer access-token"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("SEC_001"));
+	}
+
+	@Test
+	void versionedDocumentSigningWithCsrfTokenReachesAuthenticationLayer() throws Exception {
+		mockMvc.perform(multipart("/api/v1/documents/sign")
+						.file("file", "%PDF-".getBytes())
+						.file("request", """
+								{"sealPage":1,"sealX":10,"sealY":70}
+								""".getBytes())
+						.servletPath("/api/v1")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token")))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void signsVersionedDocumentWithBearerTokenAndCsrfToken() throws Exception {
+		Jwt jwt = jwt();
+		User user = User.register(
+				UUID.fromString("11111111-1111-1111-1111-111111111111"),
+				"user@example.com",
+				"password-hash",
+				Instant.parse("2026-05-22T12:00:00Z")
+		);
+		when(jwtValidator.validateAccessToken("access-token")).thenReturn(jwt);
+		when(userRepository.findById(UUID.fromString("11111111-1111-1111-1111-111111111111")))
+				.thenReturn(Optional.of(user));
+		when(pdfSigningService.sign(any(), any(), any(), any(), any()))
+				.thenReturn(new SignedPdfResult(
+						"%PDF-signed".getBytes(),
+						UUID.fromString("22222222-2222-2222-2222-222222222222"),
+						"a".repeat(64),
+						"b".repeat(64),
+						Instant.parse("2026-06-09T12:00:00Z")
+				));
+
+		mockMvc.perform(multipart("/api/v1/documents/sign")
+						.file("file", "%PDF-".getBytes())
+						.file("request", """
+								{"sealPage":1,"sealX":10,"sealY":70}
+								""".getBytes())
+						.servletPath("/api/v1")
+						.header("Authorization", "Bearer access-token")
+						.header("X-CSRF-Token", "csrf-token")
+						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token")))
+				.andExpect(status().isOk())
+				.andExpect(header().string("X-Signature-Id", "22222222-2222-2222-2222-222222222222"))
+				.andExpect(header().string("X-Original-Hash", "a".repeat(64)))
+				.andExpect(header().string("X-Signed-Hash", "b".repeat(64)));
 	}
 
 	private Jwt jwt() {

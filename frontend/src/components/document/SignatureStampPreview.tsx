@@ -15,12 +15,6 @@ export function SignatureStampPreview({
       <p className="mt-1 truncate text-[10px] text-[#D1D5DB]">
         Data/Hora UTC: pre-visualizacao
       </p>
-      <p className="mt-1 truncate text-[9px] text-[#9CA3AF]">
-        Hash SHA-256: calculado no backend
-      </p>
-      <p className="mt-1 truncate text-[9px] text-[#9CA3AF]">
-        ID da assinatura: gerado no backend
-      </p>
     </div>
   )
 }
