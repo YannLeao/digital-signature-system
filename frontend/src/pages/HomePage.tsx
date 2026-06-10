@@ -1,4 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+
+import { useAuth } from '../hooks/useAuth'
 
 type HomeState = {
   authMessage?: string
@@ -7,6 +9,11 @@ type HomeState = {
 export function HomePage() {
   const location = useLocation()
   const state = location.state as HomeState | null
+  const { isAuthenticated } = useAuth()
+
+  if (isAuthenticated) {
+    return <Navigate replace state={state ?? undefined} to="/app" />
+  }
 
   return (
     <section className="max-w-3xl">

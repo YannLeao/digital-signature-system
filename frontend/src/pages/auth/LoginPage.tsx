@@ -76,7 +76,7 @@ export function LoginPage() {
         return
       }
 
-      navigate('/', {
+      navigate('/app', {
         replace: true,
         state: { authMessage: 'Login realizado com sucesso.' },
       })
@@ -106,7 +106,7 @@ export function LoginPage() {
           credential: serializeAuthenticationCredential(credential),
           email,
         })
-        navigate('/', {
+        navigate('/app', {
           replace: true,
           state: { authMessage: 'Login com passkey realizado com sucesso.' },
         })
