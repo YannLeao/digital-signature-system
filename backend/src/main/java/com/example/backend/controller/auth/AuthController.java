@@ -1,5 +1,6 @@
 package com.example.backend.controller.auth;
 
+import com.example.backend.domain.AuditAction;
 import com.example.backend.dto.auth.CsrfTokenResponse;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
@@ -21,6 +22,7 @@ import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
@@ -60,6 +62,7 @@ public class AuthController {
     private final JwtValidator jwtValidator;
     private final TotpSetupService totpSetupService;
     private final TotpVerifyService totpVerifyService;
+    private final AuditService auditService;
 
     public AuthController(
             UserRegistrationService userRegistrationService,
@@ -72,7 +75,8 @@ public class AuthController {
             JwtLogoutService jwtLogoutService,
             JwtValidator jwtValidator,
             TotpSetupService totpSetupService,
-            TotpVerifyService totpVerifyService
+            TotpVerifyService totpVerifyService,
+            AuditService auditService
     ) {
         this.userRegistrationService = userRegistrationService;
         this.userLoginService = userLoginService;
@@ -85,6 +89,7 @@ public class AuthController {
         this.jwtValidator = jwtValidator;
         this.totpSetupService = totpSetupService;
         this.totpVerifyService = totpVerifyService;
+        this.auditService = auditService;
     }
 
     @PostMapping("/register")
@@ -97,11 +102,19 @@ public class AuthController {
     @PostMapping("/login")
     ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         loginRateLimiter.consume(servletRequest.getRemoteAddr());
-        User user = userLoginService.login(request);
         ClientContext clientContext = clientContext(servletRequest);
+
+        User user;
+        try {
+            user = userLoginService.login(request);
+        } catch (Exception ex) {
+            auditService.logFailure(null, AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
+            throw ex;
+        }
 
         if (user.isTotpEnabled()) {
             AccessToken halfSession = jwtService.issueHalfSessionToken(user, clientContext);
+            auditService.logSuccess(user.getId(), AuditAction.TOKEN_ISSUED, clientContext.ipAddress(), clientContext.userAgent());
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, csrfCookie().toString())
                     .body(LoginResponse.requiresTwoFactor(halfSession.token(), halfSession.tokenType(), halfSession.expiresIn()));
@@ -110,6 +123,7 @@ public class AuthController {
         UUID sessionId = UUID.randomUUID();
         AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
         RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
+        auditService.logSuccess(user.getId(), AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
         return accessTokenResponse(accessToken, refreshToken.rawToken());
     }
 
@@ -138,10 +152,20 @@ public class AuthController {
         if (jwt == null) {
             throw new InvalidAccessTokenException();
         }
+        ClientContext clientContext = clientContext(servletRequest);
         Jwt halfSession = jwtValidator.validateTotpChallengeToken(jwt.getTokenValue());
         UUID userId = UUID.fromString(halfSession.getSubject());
-        RefreshTokenResult result = totpVerifyService.verify(userId, request.code(), clientContext(servletRequest));
+
+        RefreshTokenResult result;
+        try {
+            result = totpVerifyService.verify(userId, request.code(), clientContext);
+        } catch (Exception ex) {
+            auditService.logFailure(userId, AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
+            throw ex;
+        }
+
         jwtLogoutService.logout(jwt);
+        auditService.logSuccess(userId, AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
         return ResponseEntity.ok()
                 .header(
                         HttpHeaders.SET_COOKIE,
@@ -163,11 +187,14 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    ResponseEntity<?> logout(@AuthenticationPrincipal Jwt jwt) {
+    ResponseEntity<?> logout(@AuthenticationPrincipal Jwt jwt, HttpServletRequest servletRequest) {
         if (jwt == null) {
             throw new InvalidAccessTokenException();
         }
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ClientContext clientContext = clientContext(servletRequest);
         jwtLogoutService.logout(jwt);
+        auditService.logSuccess(userId, AuditAction.LOGOUT, clientContext.ipAddress(), clientContext.userAgent());
         return ResponseEntity.ok()
                 .header(
                         HttpHeaders.SET_COOKIE,

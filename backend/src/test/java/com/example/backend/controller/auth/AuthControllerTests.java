@@ -17,6 +17,7 @@ import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
@@ -66,6 +67,7 @@ class AuthControllerTests {
     private JwtValidator jwtValidator;
     private TotpSetupService totpSetupService;
     private TotpVerifyService totpVerifyService;
+    private AuditService auditService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -81,6 +83,7 @@ class AuthControllerTests {
         jwtValidator = mock(JwtValidator.class);
         totpSetupService = mock(TotpSetupService.class);
         totpVerifyService = mock(TotpVerifyService.class);
+        auditService = mock(AuditService.class);
 
         when(refreshTokenCookieFactory.cookieName()).thenReturn("refresh_token");
         when(refreshTokenCookieFactory.create(any())).thenAnswer(invocation -> ResponseCookie.from("refresh_token", invocation.getArgument(0))
@@ -126,7 +129,8 @@ class AuthControllerTests {
                         jwtLogoutService,
                         jwtValidator,
                         totpSetupService,
-                        totpVerifyService
+                        totpVerifyService,
+                        auditService
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
