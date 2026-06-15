@@ -11,13 +11,7 @@ type ConditionalPublicKeyCredential = typeof PublicKeyCredential & {
   isConditionalMediationAvailable?: () => Promise<boolean>
 }
 
-type PublicKeyCredentialWithAttachment = PublicKeyCredential & {
-  authenticatorAttachment?: AuthenticatorAttachment | null
-}
-
-type RegistrationResponseWithTransports = AuthenticatorAttestationResponse & {
-  getTransports?: () => AuthenticatorTransport[]
-}
+type JsonObject = Record<string, unknown>
 
 export function isWebAuthnSupported(): boolean {
   return (
@@ -76,22 +70,53 @@ export function arrayBufferToBase64Url(value: ArrayBuffer): string {
     .replace(/=+$/g, '')
 }
 
+function isPlainObject(value: unknown): value is JsonObject {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    !(value instanceof ArrayBuffer)
+  )
+}
+
+function removeNullishValues(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return undefined
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(removeNullishValues).filter((item) => item !== undefined)
+  }
+
+  if (!isPlainObject(value)) {
+    return value
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [key, removeNullishValues(item)] as const)
+      .filter(([, item]) => item !== undefined),
+  )
+}
+
 export function toCredentialCreationOptions(
   options: PublicKeyCredentialCreationOptions,
 ): CredentialCreationOptions {
-  return {
-    publicKey: {
-      ...options,
-      challenge: base64UrlToArrayBuffer(String(options.challenge)),
-      excludeCredentials: options.excludeCredentials?.map((credential) => ({
-        ...credential,
-        id: base64UrlToArrayBuffer(String(credential.id)),
-      })),
-      user: {
-        ...options.user,
-        id: base64UrlToArrayBuffer(String(options.user.id)),
-      },
+  const publicKey = removeNullishValues({
+    ...options,
+    challenge: base64UrlToArrayBuffer(String(options.challenge)),
+    excludeCredentials: options.excludeCredentials?.map((credential) => ({
+      ...credential,
+      id: base64UrlToArrayBuffer(String(credential.id)),
+    })),
+    user: {
+      ...options.user,
+      id: base64UrlToArrayBuffer(String(options.user.id)),
     },
+  }) as PublicKeyCredentialCreationOptions
+
+  return {
+    publicKey,
   }
 }
 
@@ -100,16 +125,18 @@ export function toCredentialRequestOptions(
   mediation?: CredentialMediationRequirement,
   signal?: AbortSignal,
 ): CredentialRequestOptions {
+  const publicKey = removeNullishValues({
+    ...options,
+    allowCredentials: options.allowCredentials?.map((credential) => ({
+      ...credential,
+      id: base64UrlToArrayBuffer(String(credential.id)),
+    })),
+    challenge: base64UrlToArrayBuffer(String(options.challenge)),
+  }) as PublicKeyCredentialRequestOptions
+
   return {
     mediation,
-    publicKey: {
-      ...options,
-      allowCredentials: options.allowCredentials?.map((credential) => ({
-        ...credential,
-        id: base64UrlToArrayBuffer(String(credential.id)),
-      })),
-      challenge: base64UrlToArrayBuffer(String(options.challenge)),
-    },
+    publicKey,
     signal,
   }
 }
@@ -117,19 +144,14 @@ export function toCredentialRequestOptions(
 export function serializeRegistrationCredential(
   credential: PublicKeyCredential,
 ): string {
-  const response = credential.response as RegistrationResponseWithTransports
-  const credentialWithAttachment = credential as PublicKeyCredentialWithAttachment
+  const response = credential.response as AuthenticatorAttestationResponse
   const serialized: SerializedRegistrationCredential = {
-    authenticatorAttachment: credentialWithAttachment.authenticatorAttachment,
     clientExtensionResults: credential.getClientExtensionResults(),
     id: credential.id,
     rawId: arrayBufferToBase64Url(credential.rawId),
     response: {
       attestationObject: arrayBufferToBase64Url(response.attestationObject),
       clientDataJSON: arrayBufferToBase64Url(response.clientDataJSON),
-      transports: response.getTransports?.() as
-        | AuthenticatorTransport[]
-        | undefined,
     },
     type: credential.type as PublicKeyCredentialType,
   }
@@ -141,9 +163,7 @@ export function serializeAuthenticationCredential(
   credential: PublicKeyCredential,
 ): string {
   const response = credential.response as AuthenticatorAssertionResponse
-  const credentialWithAttachment = credential as PublicKeyCredentialWithAttachment
   const serialized: SerializedAuthenticationCredential = {
-    authenticatorAttachment: credentialWithAttachment.authenticatorAttachment,
     clientExtensionResults: credential.getClientExtensionResults(),
     id: credential.id,
     rawId: arrayBufferToBase64Url(credential.rawId),
@@ -168,4 +188,28 @@ export async function preventSilentCredentialAccess(): Promise<void> {
 
 export function isUserCancellation(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NotAllowedError'
+}
+
+export function getWebAuthnErrorMessage(error: unknown): string | null {
+  if (error instanceof DOMException) {
+    if (error.name === 'NotAllowedError') {
+      return 'Criacao da passkey cancelada ou tempo esgotado.'
+    }
+
+    if (error.name === 'SecurityError') {
+      return 'O navegador recusou a passkey para esta origem. Verifique se esta usando localhost e a origem configurada no backend.'
+    }
+
+    if (error.name === 'NotSupportedError') {
+      return 'O autenticador selecionado nao oferece suporte a esta configuracao de passkey.'
+    }
+
+    return 'O navegador nao concluiu a criacao da passkey.'
+  }
+
+  if (error instanceof TypeError) {
+    return 'O navegador recusou as opcoes de criacao da passkey.'
+  }
+
+  return null
 }
