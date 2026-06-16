@@ -5,7 +5,10 @@ import com.example.backend.dto.document.SignDocumentRequest;
 import com.example.backend.dto.document.SignedPdfResult;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.document.PdfSigningService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +30,17 @@ class DocumentControllerTests {
 
     private final PdfSigningService pdfSigningService = mock(PdfSigningService.class);
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final DocumentController controller = new DocumentController(pdfSigningService, userRepository);
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+    private final DocumentController controller = new DocumentController(
+            pdfSigningService,
+            userRepository,
+            objectMapper,
+            validator
+    );
 
     @Test
-    void validUploadReturnsSignedPdfBytesAndMetadataHeaders() {
+    void validUploadReturnsSignedPdfBytesAndMetadataHeaders() throws Exception {
         UUID userId = UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID signatureId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         User user = User.register(userId, "user@example.com", "password-hash", Instant.parse("2026-06-08T12:00:00Z"));
@@ -55,7 +65,12 @@ class DocumentControllerTests {
         when(pdfSigningService.sign(eq(file), eq(request), eq(user), eq("127.0.0.1"), any(Instant.class)))
                 .thenReturn(result);
 
-        ResponseEntity<byte[]> response = controller.sign(file, request, jwt, servletRequest);
+        ResponseEntity<byte[]> response = controller.sign(
+                file,
+                objectMapper.writeValueAsString(request),
+                jwt,
+                servletRequest
+        );
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PDF);

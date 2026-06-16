@@ -10,6 +10,7 @@ import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
 import com.example.backend.dto.auth.TotpSetupResponse;
 import com.example.backend.dto.auth.TotpSetupConfirmResponse;
+import com.example.backend.dto.auth.TotpStatusResponse;
 import com.example.backend.dto.auth.TotpVerifyRequest;
 import com.example.backend.dto.auth.TotpVerifyResponse;
 import com.example.backend.domain.User;
@@ -157,6 +158,15 @@ public class AuthController {
                 servletRequest.getRemoteAddr(), java.time.Instant.now()
         ));
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/2fa/status")
+    ResponseEntity<TotpStatusResponse> status2fa(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            throw new InvalidAccessTokenException();
+        }
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(totpSetupService.status(userId));
     }
 
     @PostMapping("/2fa/setup/confirm")

@@ -17,6 +17,8 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -27,6 +29,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private static final String BEARER_PREFIX = "Bearer ";
+	private static final Logger LOGGER = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
 	private final JwtValidator jwtValidator;
 	private final ObjectMapper objectMapper;
@@ -66,6 +69,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			filterChain.doFilter(request, response);
 		} catch (JwtException exception) {
 			SecurityContextHolder.clearContext();
+			LOGGER.warn("JWT rejeitado em {} {}: {}", request.getMethod(), request.getServletPath(), exception.getMessage());
 			writeUnauthorized(response);
 		}
 	}
@@ -78,7 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 	private boolean isTotpVerifyRequest(HttpServletRequest request) {
-		String path = request.getServletPath();
+		String path = request.getRequestURI();
 		return "POST".equalsIgnoreCase(request.getMethod())
 				&& ("/auth/2fa/verify".equals(path) || "/api/v1/auth/2fa/verify".equals(path));
 	}

@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"WEBAUTHN_ORIGIN=http://localhost:5173",
 		"USER_KEY_ENCRYPTION_KEY_BASE64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 		"app.user-key.encryption-key-base64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"PDF_SANDBOX_ENABLED=true",
+		"PDF_SANDBOX_TIMEOUT_MS=5000",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 class HealthControllerTests {

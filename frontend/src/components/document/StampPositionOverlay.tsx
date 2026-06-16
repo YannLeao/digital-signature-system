@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState, type PointerEvent } from 'react'
 import type { PdfPageSize, StampPosition } from '../../types/document'
 import { SignatureStampPreview } from './SignatureStampPreview'
 
-const stampPdfWidth = 310
-const stampPdfHeight = 70
+const stampPdfWidth = 245
+const stampPdfHeight = 56
+const stampLeftOffset = 5
+const stampTopOffset = 12
+const stampBottomOffset = stampPdfHeight - stampTopOffset
 
 type StampPositionOverlayProps = {
   currentPage: number
@@ -34,8 +37,14 @@ export function StampPositionOverlay({
 
   useEffect(() => {
     if (!position || position.page !== currentPage) {
-      const x = Math.max(5, Math.min(80, pageSize.width - stampPdfWidth + 5))
-      const y = Math.max(55, Math.min(150, pageSize.height - 15))
+      const x = Math.max(
+        stampLeftOffset,
+        Math.min(80, pageSize.width - stampPdfWidth + stampLeftOffset),
+      )
+      const y = Math.max(
+        stampBottomOffset,
+        Math.min(130, pageSize.height - stampTopOffset),
+      )
       onPositionChange({
         page: currentPage,
         x,
@@ -53,8 +62,8 @@ export function StampPositionOverlay({
     }
 
     return {
-      left: (position.x - 5) * scale,
-      top: (pageSize.height - position.y - 15) * scale,
+      left: (position.x - stampLeftOffset) * scale,
+      top: (pageSize.height - position.y - stampTopOffset) * scale,
     }
   }, [currentPage, pageSize.height, position, scale])
 
@@ -73,8 +82,8 @@ export function StampPositionOverlay({
 
     onPositionChange({
       page: currentPage,
-      x: roundCoordinate(left / scale + 5),
-      y: roundCoordinate(pageSize.height - top / scale - 15),
+      x: roundCoordinate(left / scale + stampLeftOffset),
+      y: roundCoordinate(pageSize.height - top / scale - stampTopOffset),
     })
   }
 

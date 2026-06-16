@@ -13,6 +13,13 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
+	private static final List<String> EXPOSED_SIGNATURE_HEADERS = List.of(
+			"X-Signature-Id",
+			"X-Original-Hash",
+			"X-Signed-Hash",
+			"X-Signed-At"
+	);
+
 	@Bean
 	CorsConfigurationSource corsConfigurationSource(Environment environment) {
 		List<String> allowedOrigins = readCsv(environment, "CORS_ALLOWED_ORIGINS");
@@ -29,6 +36,7 @@ public class CorsConfig {
 		configuration.setAllowedOrigins(allowedOrigins);
 		configuration.setAllowedMethods(allowedMethods);
 		configuration.setAllowedHeaders(allowedHeaders);
+		configuration.setExposedHeaders(EXPOSED_SIGNATURE_HEADERS);
 		configuration.setAllowCredentials(allowCredentials);
 		configuration.setMaxAge(maxAge);
 

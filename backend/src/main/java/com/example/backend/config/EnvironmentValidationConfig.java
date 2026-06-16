@@ -40,7 +40,9 @@ public class EnvironmentValidationConfig {
 			"CSRF_HEADER_NAME",
 			"CSRF_COOKIE_SECURE",
 			"CSRF_COOKIE_SAME_SITE",
-			"CSRF_COOKIE_PATH"
+			"CSRF_COOKIE_PATH",
+			"PDF_SANDBOX_ENABLED",
+			"PDF_SANDBOX_TIMEOUT_MS"
 	);
 
 	@Bean

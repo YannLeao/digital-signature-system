@@ -128,4 +128,8 @@ public class Passkey {
 		this.counter = newCounter;
 		this.lastUsed = lastUsed;
 	}
+
+	public void markUsed(Instant lastUsed) {
+		this.lastUsed = lastUsed;
+	}
 }

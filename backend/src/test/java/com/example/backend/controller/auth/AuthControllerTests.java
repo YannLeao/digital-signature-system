@@ -229,7 +229,7 @@ class AuthControllerTests {
 
     @Test
     void returnsControlledErrorForDuplicateEmail() throws Exception {
-        doThrow(new BusinessException("E-mail ja cadastrado."))
+        doThrow(new BusinessException("Nao foi possivel cadastrar."))
                 .when(userRegistrationService)
                 .register(new RegisterUserRequest("user@example.com", "StrongPassword123!"));
 
@@ -237,10 +237,10 @@ class AuthControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"user@example.com","password":"StrongPassword123!"}
-                                """))
+                """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VAL_003"))
-                .andExpect(jsonPath("$.message").value("E-mail ja cadastrado."));
+                .andExpect(jsonPath("$.message").value("Nao foi possivel cadastrar."));
     }
 
     @Test

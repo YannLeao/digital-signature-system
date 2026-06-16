@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"WEBAUTHN_ORIGIN=http://localhost:5173",
 		"USER_KEY_ENCRYPTION_KEY_BASE64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 		"app.user-key.encryption-key-base64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"PDF_SANDBOX_ENABLED=true",
+		"PDF_SANDBOX_TIMEOUT_MS=5000",
 		"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 class SecurityCorsTests {
@@ -116,6 +118,20 @@ class SecurityCorsTests {
 				.andExpect(status().isOk())
 				.andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
 				.andExpect(header().string("Access-Control-Allow-Headers", org.hamcrest.Matchers.containsString("X-CSRF-Token")));
+	}
+
+	@Test
+	void exposesDocumentSignatureHeadersToBrowser() throws Exception {
+		mockMvc.perform(options("/api/v1/documents/sign")
+						.servletPath("/api/v1")
+						.header("Origin", "http://localhost:5173")
+						.header("Access-Control-Request-Method", "POST")
+						.header("Access-Control-Request-Headers", "Authorization, X-CSRF-Token, Content-Type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signature-Id")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Original-Hash")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signed-Hash")))
+				.andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("X-Signed-At")));
 	}
 
 	@Test

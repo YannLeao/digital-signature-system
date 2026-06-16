@@ -42,8 +42,7 @@ export function PdfUploader({ file, onFileChange }: PdfUploaderProps) {
         PDF para assinatura
       </label>
       <p className="mt-1 text-sm text-[#9CA3AF]">
-        Envie um arquivo PDF de ate 20MB. O navegador nao modifica nem assina o
-        documento.
+        Arquivo PDF de ate 20MB.
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -63,7 +62,7 @@ export function PdfUploader({ file, onFileChange }: PdfUploaderProps) {
             }}
             type="button"
           >
-            Trocar
+            Cancelar
           </button>
         ) : null}
       </div>

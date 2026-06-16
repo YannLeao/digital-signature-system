@@ -83,8 +83,8 @@ class JwtAuthenticationFilterTests {
 	void acceptsHalfSessionOnlyOnTotpVerifyEndpoint() throws ServletException, IOException {
 		Jwt jwt = halfSessionJwt();
 		when(jwtValidator.validateTotpChallengeToken("half-session-token")).thenReturn(jwt);
-		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/auth/2fa/verify");
-		request.setServletPath("/auth/2fa/verify");
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/2fa/verify");
+		request.setServletPath("/api/v1");
 		request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer half-session-token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 

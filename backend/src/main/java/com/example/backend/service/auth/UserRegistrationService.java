@@ -19,6 +19,7 @@ import java.util.UUID;
 public class UserRegistrationService {
 
     private static final String ARGON2ID_PREFIX = "$argon2id$";
+    private static final String REGISTRATION_FAILED_MESSAGE = "Nao foi possivel cadastrar.";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -47,7 +48,7 @@ public class UserRegistrationService {
         String normalizedEmail = normalizeEmail(request.email());
 
         if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
-            throw new BusinessException("E-mail ja cadastrado.");
+            throw new BusinessException(REGISTRATION_FAILED_MESSAGE);
         }
 
         String passwordHash = passwordEncoder.encode(request.password());
@@ -61,7 +62,7 @@ public class UserRegistrationService {
         try {
             userRepository.save(user);
         } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException("E-mail ja cadastrado.");
+            throw new BusinessException(REGISTRATION_FAILED_MESSAGE);
         }
 
         userKeyService.generateAndStoreKeyPair(user, clock.instant());

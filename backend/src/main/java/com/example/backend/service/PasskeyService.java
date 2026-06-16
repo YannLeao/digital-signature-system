@@ -163,13 +163,14 @@ public class PasskeyService {
 					result.getKeyId().getId().getBase64Url(),
 					result.getPublicKeyCose().getBase64Url(),
 					result.getSignatureCount(),
-					String.valueOf(result.getAaguid()),
+					formatAaguid(result.getAaguid()),
 					deviceName,
 					Instant.now(clock)
 			);
 
 			passkeyRepository.save(passkey);
 		} catch (Exception exception) {
+			LOGGER.warn("Falha na validacao da credencial de passkey durante registro para usuario: {}", normalizedEmail, exception);
 			throw new BusinessException("Credencial de passkey invalida.");
 		}
 	}
@@ -264,7 +265,7 @@ public class PasskeyService {
 
 	private void validateAndUpdateCounter(Passkey passkey, long clientCounter, String email, String clientIp) {
 		long storedCounter = passkey.getCounter();
-		if (clientCounter <= storedCounter) {
+		if (clientCounter > 0 && storedCounter > 0 && clientCounter <= storedCounter) {
 			AUDIT_LOG.warn(
 					"Possivel clonagem de autenticador detectada. user={}, credentialPrefix={}, storedCounter={}, clientCounter={}, ip={}",
 					email,
@@ -276,7 +277,11 @@ public class PasskeyService {
 			throw new PasskeyAuthenticationFailedException();
 		}
 
-		passkey.updateCounter(clientCounter, Instant.now(clock));
+		if (clientCounter > storedCounter) {
+			passkey.updateCounter(clientCounter, Instant.now(clock));
+		} else {
+			passkey.markUsed(Instant.now(clock));
+		}
 		passkeyRepository.save(passkey);
 	}
 
@@ -305,5 +310,22 @@ public class PasskeyService {
 		}
 
 		return credentialId.substring(0, 8) + "...";
+	}
+
+	static String formatAaguid(ByteArray aaguid) {
+		String hex = aaguid.getHex();
+		if (hex.length() != 32) {
+			return aaguid.getBase64Url();
+		}
+
+		return hex.substring(0, 8)
+				+ "-"
+				+ hex.substring(8, 12)
+				+ "-"
+				+ hex.substring(12, 16)
+				+ "-"
+				+ hex.substring(16, 20)
+				+ "-"
+				+ hex.substring(20);
 	}
 }

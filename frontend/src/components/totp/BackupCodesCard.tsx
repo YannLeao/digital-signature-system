@@ -1,20 +1,10 @@
-import { useEffect } from 'react'
-
 import { downloadBackupCodes } from '../../utils/downloadBackupCodes'
 
 type BackupCodesCardProps = {
   codes: string[]
-  onClear?: () => void
 }
 
-export function BackupCodesCard({ codes, onClear }: BackupCodesCardProps) {
-  useEffect(
-    () => () => {
-      onClear?.()
-    },
-    [onClear],
-  )
-
+export function BackupCodesCard({ codes }: BackupCodesCardProps) {
   async function copyCodes() {
     await navigator.clipboard.writeText(codes.join('\n'))
   }

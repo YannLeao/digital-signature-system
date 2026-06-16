@@ -4,6 +4,7 @@ import com.example.backend.domain.TotpBackupCode;
 import com.example.backend.domain.User;
 import com.example.backend.dto.auth.TotpSetupConfirmResponse;
 import com.example.backend.dto.auth.TotpSetupResponse;
+import com.example.backend.dto.auth.TotpStatusResponse;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.exception.InvalidTotpException;
 import com.example.backend.repository.TotpBackupCodeRepository;
@@ -99,6 +100,13 @@ public class TotpSetupService {
                 .build();
 
         return new TotpSetupResponse(qrData.getUri(), List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public TotpStatusResponse status(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario nao encontrado."));
+        return new TotpStatusResponse(user.isTotpEnabled());
     }
 
     @Transactional

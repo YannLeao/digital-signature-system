@@ -63,8 +63,11 @@ public class PdfSigningService {
 
     private static final DateTimeFormatter TIMESTAMP_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
-    private static final float SEAL_WIDTH = 310;
-    private static final float SEAL_HEIGHT = 70;
+    private static final float SEAL_WIDTH = 245;
+    private static final float SEAL_HEIGHT = 56;
+    private static final float SEAL_LEFT_OFFSET = 5;
+    private static final float SEAL_TOP_OFFSET = 12;
+    private static final float SEAL_BOTTOM_OFFSET = SEAL_HEIGHT - SEAL_TOP_OFFSET;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     static {
@@ -152,19 +155,27 @@ public class PdfSigningService {
                 PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
                 String signer = pdfValidatorService.sanitizeText(user.getEmail());
 
-                contentStream.setNonStrokingColor(0.95f, 0.95f, 0.95f);
-                contentStream.addRect(x - 5, y - 55, SEAL_WIDTH, SEAL_HEIGHT);
+                float sealLeft = x - SEAL_LEFT_OFFSET;
+                float sealBottom = y - SEAL_BOTTOM_OFFSET;
+
+                contentStream.setNonStrokingColor(0.04f, 0.07f, 0.13f);
+                contentStream.addRect(sealLeft, sealBottom, SEAL_WIDTH, SEAL_HEIGHT);
                 contentStream.fill();
 
-                contentStream.setStrokingColor(0.3f, 0.3f, 0.3f);
-                contentStream.setLineWidth(0.5f);
-                contentStream.addRect(x - 5, y - 55, SEAL_WIDTH, SEAL_HEIGHT);
+                contentStream.setStrokingColor(0.02f, 0.71f, 0.83f);
+                contentStream.setLineWidth(1f);
+                contentStream.addRect(sealLeft, sealBottom, SEAL_WIDTH, SEAL_HEIGHT);
                 contentStream.stroke();
 
-                writeText(contentStream, fontBold, 7, x, y + 8, "Assinado digitalmente por: " + signer);
-                writeText(contentStream, font, 7, x, y - 4, "Data/Hora UTC: " + TIMESTAMP_FMT.format(now));
-                writeText(contentStream, font, 6, x, y - 16, "Hash SHA-256: " + docHash.substring(0, 32) + "...");
-                writeText(contentStream, font, 6, x, y - 28, "ID da assinatura: " + signatureId);
+                drawSealLogo(contentStream, sealLeft + 8, sealBottom + 14);
+
+                float textX = sealLeft + 43;
+                contentStream.setNonStrokingColor(0.98f, 0.98f, 0.98f);
+                writeText(contentStream, fontBold, 7, textX, y + 2, "Assinado digitalmente");
+                writeText(contentStream, font, 6, textX, y - 9, signer);
+                contentStream.setNonStrokingColor(0.82f, 0.87f, 0.91f);
+                writeText(contentStream, font, 5.5f, textX, y - 20, "UTC " + TIMESTAMP_FMT.format(now));
+                writeText(contentStream, font, 5.2f, textX, y - 31, "SHA-256 " + docHash.substring(0, 24) + "...");
             }
 
             document.save(output);
@@ -178,9 +189,26 @@ public class PdfSigningService {
 
     private void validateSealPosition(PDPage page, float x, float y) {
         PDRectangle mediaBox = page.getMediaBox();
-        if (x < 5 || y < 55 || x - 5 + SEAL_WIDTH > mediaBox.getWidth() || y - 55 + SEAL_HEIGHT > mediaBox.getHeight()) {
+        if (x < SEAL_LEFT_OFFSET
+                || y < SEAL_BOTTOM_OFFSET
+                || x - SEAL_LEFT_OFFSET + SEAL_WIDTH > mediaBox.getWidth()
+                || y + SEAL_TOP_OFFSET > mediaBox.getHeight()) {
             throw new PdfValidationException("DOC_001", "Posicao do selo invalida.");
         }
+    }
+
+    private void drawSealLogo(PDPageContentStream contentStream, float x, float y)
+            throws java.io.IOException {
+        contentStream.setNonStrokingColor(0.02f, 0.71f, 0.83f);
+        contentStream.addRect(x, y, 26, 26);
+        contentStream.fill();
+
+        contentStream.setStrokingColor(0.04f, 0.07f, 0.13f);
+        contentStream.setLineWidth(2.6f);
+        contentStream.moveTo(x + 7, y + 13);
+        contentStream.lineTo(x + 11.5f, y + 8.5f);
+        contentStream.lineTo(x + 20, y + 18);
+        contentStream.stroke();
     }
 
     private void writeText(PDPageContentStream contentStream, PDType1Font font, float size, float x, float y, String text)

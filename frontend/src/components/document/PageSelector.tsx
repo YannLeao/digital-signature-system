@@ -15,12 +15,13 @@ export function PageSelector({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
-        className="rounded-lg border border-[#374151] px-3 py-2 text-sm text-[#D1D5DB] transition enabled:hover:border-[#06B6D4] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="Pagina anterior"
+        className="h-9 w-9 rounded-lg border border-[#374151] text-lg leading-none text-[#D1D5DB] transition enabled:hover:border-[#06B6D4] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!canGoBack}
         onClick={() => onPageChange(currentPage - 1)}
         type="button"
       >
-        Anterior
+        ‹
       </button>
       <label className="flex items-center gap-2 text-sm text-[#D1D5DB]">
         Pagina
@@ -35,12 +36,13 @@ export function PageSelector({
       </label>
       <span className="text-sm text-[#9CA3AF]">de {numPages}</span>
       <button
-        className="rounded-lg border border-[#374151] px-3 py-2 text-sm text-[#D1D5DB] transition enabled:hover:border-[#06B6D4] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="Proxima pagina"
+        className="h-9 w-9 rounded-lg border border-[#374151] text-lg leading-none text-[#D1D5DB] transition enabled:hover:border-[#06B6D4] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!canGoForward}
         onClick={() => onPageChange(currentPage + 1)}
         type="button"
       >
-        Proxima
+        ›
       </button>
     </div>
   )

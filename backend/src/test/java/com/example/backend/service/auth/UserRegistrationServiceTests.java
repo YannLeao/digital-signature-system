@@ -62,7 +62,7 @@ class UserRegistrationServiceTests {
 
         assertThatThrownBy(() -> service.register(new RegisterUserRequest("user@example.com", "StrongPassword123!")))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("E-mail ja cadastrado.");
+                .hasMessage("Nao foi possivel cadastrar.");
 
         verify(userRepository, never()).save(any(User.class));
         verify(userKeyService, never()).generateAndStoreKeyPair(any(), any());
@@ -75,7 +75,7 @@ class UserRegistrationServiceTests {
 
         assertThatThrownBy(() -> service.register(new RegisterUserRequest("user@example.com", "StrongPassword123!")))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("E-mail ja cadastrado.");
+                .hasMessage("Nao foi possivel cadastrar.");
         verify(userKeyService, never()).generateAndStoreKeyPair(any(), any());
     }
 }

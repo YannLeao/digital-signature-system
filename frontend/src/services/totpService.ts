@@ -9,7 +9,12 @@ import type {
   TotpVerifyRequest,
   TotpVerifyResponse,
 } from '../types/totp'
-import { setAccessToken } from '../utils/authTokenStore'
+import {
+  getAuthenticatedEmail,
+  setAccessToken,
+  setAuthSession,
+  getTwoFactorToken,
+} from '../utils/authTokenStore'
 import { InvalidApiResponseError } from '../utils/parseApiError'
 
 export async function startTotpSetup(): Promise<TotpSetupResponse> {
@@ -29,6 +34,7 @@ export async function verifyTotpSetup(
   const response = await api.post<BackupCodesResponse>(
     '/auth/2fa/setup/confirm',
     payload,
+    { timeout: 60000 },
   )
   return response.data
 }
@@ -36,14 +42,34 @@ export async function verifyTotpSetup(
 export async function verifyTotpLogin(
   payload: TotpVerifyRequest,
 ): Promise<TotpVerifyResponse> {
-  const response = await api.post<TotpVerifyResponse>('/auth/2fa/verify', payload)
+  const twoFactorToken = getTwoFactorToken()
+  if (!twoFactorToken) {
+    throw new InvalidApiResponseError()
+  }
+
+  const response = await api.post<TotpVerifyResponse>(
+    '/auth/2fa/verify',
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${twoFactorToken}`,
+      },
+      timeout: 60000,
+    },
+  )
   const parsedResponse = authResponseSchema.safeParse(response.data)
 
   if (!parsedResponse.success) {
     throw new InvalidApiResponseError()
   }
 
-  setAccessToken(parsedResponse.data.accessToken)
+  const email = getAuthenticatedEmail()
+  if (email) {
+    setAuthSession(parsedResponse.data.accessToken, email)
+  } else {
+    setAccessToken(parsedResponse.data.accessToken)
+  }
+
   return parsedResponse.data
 }
 
@@ -54,5 +80,6 @@ export async function verifyBackupCode(
 }
 
 export async function getTotpStatus(): Promise<TotpStatus> {
-  return { enabled: false }
+  const response = await api.get<TotpStatus>('/auth/2fa/status')
+  return response.data
 }

@@ -104,6 +104,20 @@ class PasskeyServiceTests {
 	}
 
 	@Test
+	void formatsAaguidAsCanonicalUuid() {
+		ByteArray aaguid = new ByteArray(new byte[] {
+				0x00, 0x01, 0x02, 0x03,
+				0x04, 0x05,
+				0x06, 0x07,
+				0x08, 0x09,
+				0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+		});
+
+		assertThat(PasskeyService.formatAaguid(aaguid))
+				.isEqualTo("00010203-0405-0607-0809-0a0b0c0d0e0f");
+	}
+
+	@Test
 	void storesServerGeneratedOptionsWhenStartingAuthentication() {
 		AssertionRequest assertionRequest = mock(AssertionRequest.class);
 		PublicKeyCredentialRequestOptions options = mock(PublicKeyCredentialRequestOptions.class);
@@ -144,6 +158,29 @@ class PasskeyServiceTests {
 	@Test
 	void rejectsEqualCounterWithoutUpdatingOrIssuingTokens() throws Exception {
 		assertInvalidCounterRejected(7, 7);
+	}
+
+	@Test
+	void authenticatesPasskeyWhenAuthenticatorDoesNotSupportCounter() throws Exception {
+		User user = user();
+		Passkey passkey = passkey(user, 0);
+		AssertionRequest assertionRequest = mock(AssertionRequest.class);
+		AssertionResult assertionResult = assertionResult(true, 0);
+		pendingAuthenticationOptions.put("user@example.com", assertionRequest);
+		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
+		when(relyingParty.finishAssertion(any())).thenReturn(assertionResult);
+		when(passkeyRepository.findByCredentialIdAndActiveTrue(credentialId.getBase64Url())).thenReturn(Optional.of(passkey));
+		when(jwtService.issueAccessToken(any(), any(), any())).thenReturn(new AccessToken("jwt-token", "Bearer", 900));
+		when(refreshTokenService.issueForLogin(any(), any(), any())).thenReturn(new RefreshTokenPair("refresh-token", null));
+
+		RefreshTokenResult result = service.finishAuthentication("user@example.com", "{}", CLIENT_CONTEXT);
+
+		assertThat(result.accessToken().token()).isEqualTo("jwt-token");
+		assertThat(passkey.getCounter()).isZero();
+		assertThat(passkey.getLastUsed()).isEqualTo(NOW);
+		verify(passkeyRepository).save(passkey);
+		verify(jwtService).issueAccessToken(any(), any(), any());
+		verify(refreshTokenService).issueForLogin(any(), any(), any());
 	}
 
 	@Test

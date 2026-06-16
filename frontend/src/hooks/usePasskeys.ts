@@ -9,6 +9,7 @@ import {
 import type { PasskeyDevice } from '../types/passkey'
 import { parseApiError } from '../utils/parseApiError'
 import {
+  getWebAuthnErrorMessage,
   isUserCancellation,
   isWebAuthnSupported,
   serializeRegistrationCredential,
@@ -97,6 +98,12 @@ export function usePasskeys(email: string | null): UsePasskeysResult {
       } catch (registrationError) {
         if (isUserCancellation(registrationError)) {
           setError('Criação da passkey cancelada.')
+          return
+        }
+
+        const webAuthnErrorMessage = getWebAuthnErrorMessage(registrationError)
+        if (webAuthnErrorMessage) {
+          setError(webAuthnErrorMessage)
           return
         }
 
