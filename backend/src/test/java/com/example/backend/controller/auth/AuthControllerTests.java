@@ -19,6 +19,8 @@ import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.audit.AuditService;
+import com.example.backend.service.session.ActiveSessionService;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
@@ -43,6 +45,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -69,6 +72,8 @@ class AuthControllerTests {
     private TotpSetupService totpSetupService;
     private TotpVerifyService totpVerifyService;
     private AuditService auditService;
+    private ActiveSessionService activeSessionService;
+    private ApplicationEventPublisher eventPublisher;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -85,6 +90,8 @@ class AuthControllerTests {
         totpSetupService = mock(TotpSetupService.class);
         totpVerifyService = mock(TotpVerifyService.class);
         auditService = mock(AuditService.class);
+        activeSessionService = mock(ActiveSessionService.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
 
         when(refreshTokenCookieFactory.cookieName()).thenReturn("refresh_token");
         when(refreshTokenCookieFactory.create(any())).thenAnswer(invocation -> ResponseCookie.from("refresh_token", invocation.getArgument(0))
@@ -131,7 +138,9 @@ class AuthControllerTests {
                         jwtValidator,
                         totpSetupService,
                         totpVerifyService,
-                        auditService
+                        auditService,
+                        activeSessionService,
+                        eventPublisher
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
@@ -243,7 +252,7 @@ class AuthControllerTests {
                 "password-hash",
                 Instant.parse("2026-05-22T12:00:00Z")
         );
-        when(userLoginService.login(new LoginRequest("user@example.com", password))).thenReturn(user);
+        when(userLoginService.login(eq(new LoginRequest("user@example.com", password)), any())).thenReturn(user);
         when(jwtService.issueAccessToken(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5")), any()))
                 .thenReturn(new AccessToken("jwt-token", "Bearer", 900));
         when(refreshTokenService.issueForLogin(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5")), any()))
@@ -273,7 +282,7 @@ class AuthControllerTests {
 
         assertThat(response).doesNotContain(password, "password", "passwordHash", "$argon2id$", "refresh-token-raw", "refreshToken");
         verify(loginRateLimiter).consume("203.0.113.10");
-        verify(userLoginService).login(new LoginRequest("user@example.com", password));
+        verify(userLoginService).login(eq(new LoginRequest("user@example.com", password)), any());
         verify(jwtService).issueAccessToken(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5")), any());
         verify(refreshTokenService).issueForLogin(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5")), any());
     }
@@ -288,7 +297,7 @@ class AuthControllerTests {
                 Instant.parse("2026-05-22T12:00:00Z")
         );
         user.enableTotp("encrypted-secret", Instant.parse("2026-05-22T12:01:00Z"));
-        when(userLoginService.login(new LoginRequest("user@example.com", password))).thenReturn(user);
+        when(userLoginService.login(eq(new LoginRequest("user@example.com", password)), any())).thenReturn(user);
         when(jwtService.issueHalfSessionToken(eq(user), eq(new ClientContext("203.0.113.10", "JUnit/5"))))
                 .thenReturn(new AccessToken("half-session-token", "Bearer", 300));
 
@@ -399,7 +408,7 @@ class AuthControllerTests {
     void returnsGenericAuthenticationErrorForLoginFailure() throws Exception {
         doThrow(new AuthenticationFailedException())
                 .when(userLoginService)
-                .login(new LoginRequest("user@example.com", "WrongPassword123!"));
+                .login(eq(new LoginRequest("user@example.com", "WrongPassword123!")), any());
 
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,4 +1,10 @@
 package com.example.backend.security;
 
-public record RefreshTokenResult(AccessToken accessToken, String refreshToken) {
+import java.util.UUID;
+
+public record RefreshTokenResult(AccessToken accessToken, String refreshToken, UUID sessionId) {
+
+    public RefreshTokenResult(AccessToken accessToken, String refreshToken) {
+        this(accessToken, refreshToken, null);
+    }
 }

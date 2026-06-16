@@ -106,7 +106,7 @@ public class TotpVerifyService {
 		AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
 		RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
 
-		return new RefreshTokenResult(accessToken, refreshToken.rawToken());
+		return new RefreshTokenResult(accessToken, refreshToken.rawToken(), sessionId);
 	}
 
 	private boolean isValidTotp(String secret, String code) {

@@ -129,7 +129,7 @@ class AuthSecurityTests {
 
 	@Test
 	void permitsVersionedLoginWithoutAuthenticationOrCsrfToken() throws Exception {
-		when(userLoginService.login(any())).thenReturn(User.register(
+		when(userLoginService.login(any(), any())).thenReturn(User.register(
 				UUID.fromString("11111111-1111-1111-1111-111111111111"),
 				"user@example.com",
 				"password-hash",
