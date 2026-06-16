@@ -22,6 +22,12 @@ export function BaseLayout() {
             Projeto Seguranca
           </Link>
           <nav className="flex items-center gap-2 text-sm">
+            <Link
+              className="rounded-lg border border-[#374151] px-3 py-2 text-[#D1D5DB] transition hover:border-[#06B6D4] hover:text-[#F9FAFB]"
+              to="/verificar"
+            >
+              Verificar PDF
+            </Link>
             {isAuthenticated ? (
               <>
                 <Link

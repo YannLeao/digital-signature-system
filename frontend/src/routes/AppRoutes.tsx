@@ -6,6 +6,7 @@ import { RegisterPage } from '../pages/auth/RegisterPage'
 import { HomePage } from '../pages/HomePage'
 import { ProtectedPage } from '../pages/ProtectedPage'
 import { SignDocumentPage } from '../pages/documents/SignDocumentPage'
+import { VerifyDocumentPage } from '../pages/public/VerifyDocumentPage'
 import { PasskeysPage } from '../pages/security/PasskeysPage'
 import { TotpVerifyPage } from '../pages/security/TotpVerifyPage'
 import { TwoFactorPage } from '../pages/security/TwoFactorPage'
@@ -19,6 +20,8 @@ export function AppRoutes() {
         <Route element={<LoginPage />} path="/login" />
         <Route element={<RegisterPage />} path="/register" />
         <Route element={<TotpVerifyPage />} path="/two-factor" />
+        <Route element={<VerifyDocumentPage />} path="/verificar" />
+        <Route element={<VerifyDocumentPage />} path="/verify" />
         <Route element={<PrivateRoute />}>
           <Route element={<ProtectedPage />} path="/app" />
           <Route element={<SignDocumentPage />} path="/documents/sign" />
