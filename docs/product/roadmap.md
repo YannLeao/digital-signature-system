@@ -50,7 +50,7 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 
 ## EPIC-07 - Verificacao Publica
 
-- [ ] VERIFY-01 - Endpoint publico de verificacao
+- [x] VERIFY-01 - Endpoint publico de verificacao
 - [ ] VERIFY-02 - Tela publica de verificacao
 
 ## EPIC-08 - Sessoes, Auditoria e Notificacoes
