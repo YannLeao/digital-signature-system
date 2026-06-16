@@ -1,13 +1,7 @@
 package com.example.backend.service.document;
 
 import com.example.backend.exception.PdfValidationException;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.common.PDDestinationOrAction;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.interactive.action.PDAction;
-import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
-import org.apache.pdfbox.pdmodel.interactive.action.PDDocumentCatalogAdditionalActions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,12 +29,24 @@ public class PdfValidatorService {
             Pattern.CASE_INSENSITIVE
     );
 
+    private final PdfSandboxService pdfSandboxService;
+
+    public PdfValidatorService() {
+        this(new PdfSandboxService(false, java.time.Duration.ofSeconds(5), "", ""));
+    }
+
+    @Autowired
+    public PdfValidatorService(PdfSandboxService pdfSandboxService) {
+        this.pdfSandboxService = pdfSandboxService;
+    }
+
     public byte[] validateAndRead(MultipartFile file) {
         validateFileMetadata(file);
 
         byte[] bytes = readBytes(file);
         validateMagicNumber(bytes);
         validateNoSuspiciousActions(bytes);
+        pdfSandboxService.validateStructure(bytes);
 
         return bytes;
     }
@@ -102,41 +108,7 @@ public class PdfValidatorService {
             throw invalid("PDF rejeitado: contem acoes embutidas suspeitas.");
         }
 
-        try (PDDocument document = Loader.loadPDF(bytes)) {
-            checkAction(document.getDocumentCatalog().getOpenAction());
-
-            PDDocumentCatalogAdditionalActions catalogActions = document.getDocumentCatalog().getActions();
-            if (catalogActions != null) {
-                checkAction(catalogActions.getDP());
-                checkAction(catalogActions.getDS());
-                checkAction(catalogActions.getWC());
-                checkAction(catalogActions.getWP());
-                checkAction(catalogActions.getWS());
-            }
-
-            for (PDPage page : document.getPages()) {
-                if (page.getActions() != null) {
-                    checkAction(page.getActions().getO());
-                    checkAction(page.getActions().getC());
-                }
-            }
-        } catch (PdfValidationException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw invalid("Nao foi possivel processar o PDF para validacao.");
-        }
-    }
-
-    private void checkAction(PDDestinationOrAction action) {
-        if (action instanceof PDActionJavaScript) {
-            throw invalid("PDF rejeitado: contem acoes embutidas suspeitas.");
-        }
-    }
-
-    private void checkAction(PDAction action) {
-        if (action instanceof PDActionJavaScript) {
-            throw invalid("PDF rejeitado: contem acoes embutidas suspeitas.");
-        }
+        // Parsing estrutural do PDF acontece em processo isolado via PdfSandboxService.
     }
 
     private PdfValidationException invalid(String message) {
