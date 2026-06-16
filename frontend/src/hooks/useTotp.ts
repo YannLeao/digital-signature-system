@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { startTotpSetup, verifyTotpSetup } from '../services/totpService'
+import {
+  getTotpStatus,
+  startTotpSetup,
+  verifyTotpSetup,
+} from '../services/totpService'
 import type { TotpSetupResponse } from '../types/totp'
 import { parseApiError } from '../utils/parseApiError'
 import { extractTotpSecret, formatTotpSecret } from '../utils/totp'
@@ -11,6 +15,8 @@ type UseTotpResult = {
   code: string
   error: string | null
   isConfirming: boolean
+  isEnabled: boolean
+  isStatusLoading: boolean
   isStarting: boolean
   manualSecret: string
   otpauthUrl?: string
@@ -26,7 +32,9 @@ export function useTotp(): UseTotpResult {
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isEnabled, setIsEnabled] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
+  const [isStatusLoading, setIsStatusLoading] = useState(true)
   const [isConfirming, setIsConfirming] = useState(false)
   const rawSecret = setupResponse
     ? extractTotpSecret(setupResponse.otpauthUrl)
@@ -34,10 +42,32 @@ export function useTotp(): UseTotpResult {
   const manualSecret = rawSecret ? formatTotpSecret(rawSecret) : ''
 
   useEffect(
-    () => () => {
-      setSetupResponse(null)
-      setBackupCodes([])
-      setCode('')
+    () => {
+      let isMounted = true
+
+      void getTotpStatus()
+        .then((status) => {
+          if (isMounted) {
+            setIsEnabled(status.enabled)
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setError('Nao foi possivel carregar o status do 2FA.')
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsStatusLoading(false)
+          }
+        })
+
+      return () => {
+        isMounted = false
+        setSetupResponse(null)
+        setBackupCodes([])
+        setCode('')
+      }
     },
     [],
   )
@@ -65,7 +95,12 @@ export function useTotp(): UseTotpResult {
     async (nextCode: string) => {
       const normalizedCode = nextCode.replace(/\D/g, '').slice(0, 6)
 
-      if (!setupResponse || !rawSecret || normalizedCode.length !== 6) {
+      if (
+        isConfirming ||
+        !setupResponse ||
+        !rawSecret ||
+        normalizedCode.length !== 6
+      ) {
         return
       }
 
@@ -75,6 +110,7 @@ export function useTotp(): UseTotpResult {
       try {
         const response = await verifyTotpSetup({ code: normalizedCode })
         setBackupCodes(response.backupCodes)
+        setIsEnabled(true)
         setCode('')
       } catch (verificationError) {
         setError(
@@ -87,15 +123,21 @@ export function useTotp(): UseTotpResult {
         setIsConfirming(false)
       }
     },
-    [rawSecret, setupResponse],
+    [isConfirming, rawSecret, setupResponse],
   )
+
+  const clearBackupCodes = useCallback(() => {
+    setBackupCodes([])
+  }, [])
 
   return {
     backupCodes,
-    clearBackupCodes: () => setBackupCodes([]),
+    clearBackupCodes,
     code,
     error,
     isConfirming,
+    isEnabled,
+    isStatusLoading,
     isStarting,
     manualSecret,
     otpauthUrl: setupResponse?.otpauthUrl,

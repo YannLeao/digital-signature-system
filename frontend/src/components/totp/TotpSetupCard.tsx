@@ -76,7 +76,6 @@ export function TotpSetupCard({
             <TotpCodeInput
               disabled={isConfirming}
               onChange={onCodeChange}
-              onComplete={(nextCode) => void onConfirm(nextCode)}
               value={code}
             />
             {error ? (

@@ -5,10 +5,11 @@ import { useTotp } from '../../hooks/useTotp'
 export function TwoFactorPage() {
   const {
     backupCodes,
-    clearBackupCodes,
     code,
     error,
     isConfirming,
+    isEnabled,
+    isStatusLoading,
     isStarting,
     manualSecret,
     otpauthUrl,
@@ -31,20 +32,37 @@ export function TwoFactorPage() {
       </p>
 
       <div className="mt-8 space-y-5">
-        {backupCodes.length > 0 ? (
-          <BackupCodesCard codes={backupCodes} onClear={clearBackupCodes} />
+        {isStatusLoading ? (
+          <div className="rounded-xl border border-[#374151] bg-[#1F2937] p-5 text-sm text-[#D1D5DB]">
+            Carregando status do 2FA...
+          </div>
         ) : null}
-        <TotpSetupCard
-          code={code}
-          error={error}
-          isConfirming={isConfirming}
-          isStarting={isStarting}
-          manualSecret={manualSecret}
-          onCodeChange={setCode}
-          onConfirm={verifySetup}
-          onStart={startSetup}
-          otpauthUrl={otpauthUrl}
-        />
+        {backupCodes.length > 0 ? (
+          <BackupCodesCard codes={backupCodes} />
+        ) : null}
+        {isEnabled && backupCodes.length === 0 ? (
+          <div className="rounded-xl border border-[#10B981]/40 bg-[#10B981]/10 p-5">
+            <h2 className="text-lg font-semibold text-[#F9FAFB]">
+              Autenticacao em duas etapas ativa
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-emerald-100">
+              Esta conta ja exige codigo TOTP ou codigo de recuperacao apos o
+              login por senha.
+            </p>
+          </div>
+        ) : (
+          <TotpSetupCard
+            code={code}
+            error={error}
+            isConfirming={isConfirming}
+            isStarting={isStarting}
+            manualSecret={manualSecret}
+            onCodeChange={setCode}
+            onConfirm={verifySetup}
+            onStart={startSetup}
+            otpauthUrl={otpauthUrl}
+          />
+        )}
       </div>
     </section>
   )

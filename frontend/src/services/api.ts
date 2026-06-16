@@ -156,6 +156,7 @@ function shouldRefreshAccessToken(config: RetriableRequestConfig): boolean {
   return (
     !url.endsWith('/auth/login') &&
     !url.endsWith('/auth/register') &&
+    !url.endsWith('/auth/2fa/verify') &&
     !url.endsWith('/auth/refresh')
   )
 }
