@@ -74,7 +74,9 @@ public class SecurityConfig {
 								"/auth/passkey/auth/start",
 								"/api/v1/auth/passkey/auth/start",
 								"/auth/passkey/auth/finish",
-								"/api/v1/auth/passkey/auth/finish"
+								"/api/v1/auth/passkey/auth/finish",
+								"/verify",
+								"/api/v1/verify"
 						).permitAll()
 						.anyRequest().authenticated()
 				)

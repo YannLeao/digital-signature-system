@@ -111,7 +111,7 @@ public class PdfSigningService {
         byte[] sealedBytes = embedSeal(
                 originalBytes, user, originalHash, signatureId, now,
                 request.sealPage(), request.sealX(), request.sealY());
-        byte[] signedPdfBytes = embedPdfSignature(sealedBytes, user, publicKey, privateKey, userKey.getKeyAlgorithm(), now);
+        byte[] signedPdfBytes = embedPdfSignature(sealedBytes, user, publicKey, privateKey, userKey.getKeyAlgorithm(), signatureId, now);
         String signedHash = sha256Hex(signedPdfBytes);
 
         DocumentSignature record = DocumentSignature.create(
@@ -225,6 +225,7 @@ public class PdfSigningService {
                                      PublicKey publicKey,
                                      PrivateKey privateKey,
                                      String keyAlgorithm,
+                                     UUID signatureId,
                                      Instant now) {
         try (PDDocument document = Loader.loadPDF(pdfBytes);
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -236,6 +237,7 @@ public class PdfSigningService {
             signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
             signature.setName(pdfValidatorService.sanitizeText(user.getEmail()));
             signature.setReason("Assinatura digital do documento");
+            signature.setContactInfo(PdfVerificationService.SIGNATURE_ID_CONTACT_PREFIX + signatureId);
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(Date.from(now));
             signature.setSignDate(calendar);

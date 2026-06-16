@@ -13,11 +13,15 @@ import com.example.backend.security.JwtService;
 import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.service.document.PdfSigningService;
+import com.example.backend.service.document.PdfVerificationService;
 import com.example.backend.service.PasskeyService;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
+import com.example.backend.service.audit.AuditService;
+import com.example.backend.service.session.ActiveSessionService;
 import com.example.backend.dto.document.SignedPdfResult;
+import com.example.backend.dto.document.VerifyDocumentResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -118,6 +122,17 @@ class AuthSecurityTests {
 
 	@MockitoBean
 	private PdfSigningService pdfSigningService;
+
+	@MockitoBean
+	private PdfVerificationService pdfVerificationService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private AuditService auditService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private ActiveSessionService activeSessionService;
 
 	@Autowired
 	AuthSecurityTests(MockMvc mockMvc) {
@@ -233,6 +248,17 @@ class AuthSecurityTests {
 						.header("X-CSRF-Token", "csrf-token")
 						.cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token")))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void permitsVersionedPublicVerifyWithoutAuthenticationOrCsrfToken() throws Exception {
+		when(pdfVerificationService.verify(any())).thenReturn(VerifyDocumentResponse.notFound());
+
+		mockMvc.perform(multipart("/api/v1/verify")
+						.file("file", "%PDF-".getBytes())
+						.servletPath("/api/v1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("NOT_FOUND"));
 	}
 
 	@Test

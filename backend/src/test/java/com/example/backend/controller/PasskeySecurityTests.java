@@ -8,10 +8,20 @@ import com.example.backend.repository.TotpBackupCodeRepository;
 import com.example.backend.repository.UserKeyRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
+import com.example.backend.security.JwtLogoutService;
+import com.example.backend.security.JwtService;
+import com.example.backend.security.JwtValidator;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.PasskeyService;
+import com.example.backend.service.audit.AuditService;
+import com.example.backend.service.auth.RefreshTokenService;
+import com.example.backend.service.auth.TotpSetupService;
+import com.example.backend.service.auth.TotpVerifyService;
 import com.example.backend.service.auth.UserLoginService;
 import com.example.backend.service.auth.UserRegistrationService;
+import com.example.backend.service.document.PdfSigningService;
+import com.example.backend.service.document.PdfVerificationService;
+import com.example.backend.service.session.ActiveSessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -66,6 +76,46 @@ class PasskeySecurityTests {
 	@MockitoBean
 	@SuppressWarnings("unused")
 	private PasskeyService passkeyService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtService jwtService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private RefreshTokenService refreshTokenService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtValidator jwtValidator;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private JwtLogoutService jwtLogoutService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpSetupService totpSetupService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private TotpVerifyService totpVerifyService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private AuditService auditService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private ActiveSessionService activeSessionService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private PdfSigningService pdfSigningService;
+
+	@MockitoBean
+	@SuppressWarnings("unused")
+	private PdfVerificationService pdfVerificationService;
 
 	@MockitoBean
 	@SuppressWarnings("unused")
