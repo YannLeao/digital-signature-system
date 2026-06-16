@@ -2,9 +2,12 @@ package com.example.backend.service.auth;
 
 import com.example.backend.domain.User;
 import com.example.backend.dto.auth.LoginRequest;
+import com.example.backend.event.AccountLockedEvent;
+import com.example.backend.event.NewLoginEvent;
 import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,23 +26,25 @@ public class UserLoginService {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
 	private final String dummyPasswordHash;
 
 	@Autowired
-	public UserLoginService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-		this(userRepository, passwordEncoder, Clock.systemUTC(), passwordEncoder.encode("DummyPassword123!"));
+	public UserLoginService(UserRepository userRepository, PasswordEncoder passwordEncoder, ApplicationEventPublisher eventPublisher) {
+		this(userRepository, passwordEncoder, eventPublisher, Clock.systemUTC(), passwordEncoder.encode("DummyPassword123!"));
 	}
 
-	UserLoginService(UserRepository userRepository, PasswordEncoder passwordEncoder, Clock clock, String dummyPasswordHash) {
+	UserLoginService(UserRepository userRepository, PasswordEncoder passwordEncoder, ApplicationEventPublisher eventPublisher, Clock clock, String dummyPasswordHash) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.eventPublisher = eventPublisher;
 		this.clock = clock;
 		this.dummyPasswordHash = dummyPasswordHash;
 	}
 
 	@Transactional
-	public User login(LoginRequest request) {
+	public User login(LoginRequest request, String ip) {
 		String normalizedEmail = normalizeEmail(request.email());
 		Instant now = Instant.now(clock);
 		Optional<User> userCandidate = userRepository.findByEmailIgnoreCase(normalizedEmail);
@@ -61,6 +66,7 @@ public class UserLoginService {
 		}
 
 		user.clearLoginFailures(now);
+		eventPublisher.publishEvent(new NewLoginEvent(user.getId(), user.getEmail(), ip, now));
 		return user;
 	}
 
@@ -69,7 +75,7 @@ public class UserLoginService {
 
 		if (user.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
 			user.lockUntil(now.plus(LOCK_DURATION), now);
-			// TODO: Integrar notificacao de bloqueio quando o servico de e-mail existir.
+			eventPublisher.publishEvent(new AccountLockedEvent(user.getId(), user.getEmail(), user.getLockedUntil()));
 		}
 	}
 

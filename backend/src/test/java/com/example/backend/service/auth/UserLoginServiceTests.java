@@ -6,6 +6,7 @@ import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Clock;
@@ -26,9 +27,11 @@ class UserLoginServiceTests {
 
 	private final UserRepository userRepository = mock(UserRepository.class);
 	private final PasswordEncoder passwordEncoder = new Argon2PasswordEncoder(16, 32, 4, 65536, 3);
+	private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 	private final UserLoginService service = new UserLoginService(
 			userRepository,
 			passwordEncoder,
+			eventPublisher,
 			CLOCK,
 			passwordEncoder.encode("DummyPassword123!")
 	);
@@ -40,7 +43,7 @@ class UserLoginServiceTests {
 		user.lockUntil(NOW.minusSeconds(60), NOW.minusSeconds(120));
 		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
-		User loggedUser = service.login(new LoginRequest(" User@Example.COM ", "StrongPassword123!"));
+		User loggedUser = service.login(new LoginRequest(" User@Example.COM ", "StrongPassword123!"), "127.0.0.1");
 
 		assertThat(loggedUser).isSameAs(user);
 		assertThat(user.getFailedAttempts()).isZero();
@@ -52,7 +55,7 @@ class UserLoginServiceTests {
 	void returnsGenericErrorForUnknownUser() {
 		when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("missing@example.com", "StrongPassword123!")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("missing@example.com", "StrongPassword123!"), "127.0.0.1"))
 				.isInstanceOf(AuthenticationFailedException.class)
 				.hasMessage("Credenciais invalidas.");
 	}
@@ -62,7 +65,7 @@ class UserLoginServiceTests {
 		User user = user();
 		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "WrongPassword123!")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "WrongPassword123!"), "127.0.0.1"))
 				.isInstanceOf(AuthenticationFailedException.class)
 				.hasMessage("Credenciais invalidas.");
 
@@ -76,7 +79,7 @@ class UserLoginServiceTests {
 		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
 		for (int attempt = 0; attempt < 5; attempt++) {
-			assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "WrongPassword123!")))
+			assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "WrongPassword123!"), "127.0.0.1"))
 					.isInstanceOf(AuthenticationFailedException.class);
 		}
 
@@ -90,7 +93,7 @@ class UserLoginServiceTests {
 		user.lockUntil(NOW.plusSeconds(300), NOW.minusSeconds(60));
 		when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
 
-		assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "StrongPassword123!")))
+		assertThatThrownBy(() -> service.login(new LoginRequest("user@example.com", "StrongPassword123!"), "127.0.0.1"))
 				.isInstanceOf(AuthenticationFailedException.class)
 				.hasMessage("Credenciais invalidas.");
 

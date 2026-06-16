@@ -1,6 +1,7 @@
 package com.example.backend.controller.auth;
 
 import com.example.backend.domain.AuditAction;
+import com.example.backend.event.TwoFactorChangedEvent;
 import com.example.backend.dto.auth.CsrfTokenResponse;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
@@ -23,7 +24,9 @@ import com.example.backend.security.RefreshTokenCookieFactory;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.audit.AuditService;
+import com.example.backend.service.session.ActiveSessionService;
 import com.example.backend.service.auth.LoginRateLimiter;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
 import com.example.backend.service.auth.TotpVerifyService;
@@ -63,6 +66,8 @@ public class AuthController {
     private final TotpSetupService totpSetupService;
     private final TotpVerifyService totpVerifyService;
     private final AuditService auditService;
+    private final ActiveSessionService activeSessionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthController(
             UserRegistrationService userRegistrationService,
@@ -76,7 +81,9 @@ public class AuthController {
             JwtValidator jwtValidator,
             TotpSetupService totpSetupService,
             TotpVerifyService totpVerifyService,
-            AuditService auditService
+            AuditService auditService,
+            ActiveSessionService activeSessionService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.userRegistrationService = userRegistrationService;
         this.userLoginService = userLoginService;
@@ -90,6 +97,8 @@ public class AuthController {
         this.totpSetupService = totpSetupService;
         this.totpVerifyService = totpVerifyService;
         this.auditService = auditService;
+        this.activeSessionService = activeSessionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostMapping("/register")
@@ -106,7 +115,7 @@ public class AuthController {
 
         User user;
         try {
-            user = userLoginService.login(request);
+            user = userLoginService.login(request, clientContext.ipAddress());
         } catch (Exception ex) {
             auditService.logFailure(null, AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
             throw ex;
@@ -123,6 +132,7 @@ public class AuthController {
         UUID sessionId = UUID.randomUUID();
         AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
         RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
+        activeSessionService.register(sessionId, user.getId(), clientContext);
         auditService.logSuccess(user.getId(), AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
         return accessTokenResponse(accessToken, refreshToken.rawToken());
     }
@@ -135,12 +145,17 @@ public class AuthController {
     }
 
     @PostMapping("/2fa/setup")
-    ResponseEntity<TotpSetupResponse> setup2fa(@AuthenticationPrincipal Jwt jwt) {
+    ResponseEntity<TotpSetupResponse> setup2fa(@AuthenticationPrincipal Jwt jwt, HttpServletRequest servletRequest) {
         if (jwt == null) {
             throw new InvalidAccessTokenException();
         }
         UUID userId = UUID.fromString(jwt.getSubject());
-        return ResponseEntity.ok(totpSetupService.setup(userId));
+        TotpSetupResponse response = totpSetupService.setup(userId);
+        eventPublisher.publishEvent(new TwoFactorChangedEvent(
+                userId, jwt.getSubject(), true,
+                servletRequest.getRemoteAddr(), java.time.Instant.now()
+        ));
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/2fa/verify")
@@ -165,6 +180,7 @@ public class AuthController {
         }
 
         jwtLogoutService.logout(jwt);
+        activeSessionService.register(result.sessionId(), userId, clientContext);
         auditService.logSuccess(userId, AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
         return ResponseEntity.ok()
                 .header(
