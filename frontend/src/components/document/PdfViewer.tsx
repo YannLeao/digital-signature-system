@@ -73,7 +73,11 @@ export function PdfViewer({
 
       <div className="mt-5 overflow-auto rounded-lg bg-[#0B1120] p-4">
         <Document
-          error={<p className="text-sm text-[#EF4444]">Nao foi possivel carregar o PDF.</p>}
+          error={
+            <p className="text-sm text-[#EF4444]">
+              O arquivo nao parece ser um PDF valido.
+            </p>
+          }
           file={file}
           loading={<p className="text-sm text-[#9CA3AF]">Carregando preview...</p>}
           onLoadSuccess={handleLoadSuccess}
@@ -81,7 +85,11 @@ export function PdfViewer({
           <div className="relative inline-block overflow-hidden bg-white shadow-2xl">
             <Page
               canvasBackground="white"
-              error={<p className="p-6 text-sm text-[#EF4444]">Pagina indisponivel.</p>}
+              error={
+                <p className="p-6 text-sm text-[#EF4444]">
+                  Esta pagina do PDF nao pode ser exibida.
+                </p>
+              }
               loading={<p className="p-6 text-sm text-[#9CA3AF]">Renderizando pagina...</p>}
               onRenderSuccess={(page) => {
                 setPageSize({

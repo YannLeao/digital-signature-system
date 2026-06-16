@@ -42,7 +42,6 @@ export function LoginPage() {
     },
   })
   const watchedEmail = useWatch({ control, name: 'email' })
-  const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null)
   const [supportsConditionalUi, setSupportsConditionalUi] = useState(false)
   const passkeyAbortController = useRef<AbortController | null>(null)
 
@@ -52,11 +51,6 @@ export function LoginPage() {
     void isConditionalUiSupported().then((isSupported) => {
       if (isMounted) {
         setSupportsConditionalUi(isSupported)
-        setPasskeyStatus(
-          isSupported
-            ? 'Passkey disponivel pelo preenchimento automatico do e-mail.'
-            : null,
-        )
       }
     })
 
@@ -115,7 +109,6 @@ export function LoginPage() {
           return
         }
 
-        setPasskeyStatus(null)
         setApiError(getAuthErrorMessage(error, 'Nao foi possivel usar a passkey.'))
       }
     },
@@ -173,11 +166,6 @@ export function LoginPage() {
           registration={register('email')}
           type="email"
         />
-        {passkeyStatus ? (
-          <div className="rounded-lg border border-[#06B6D4]/30 bg-[#06B6D4]/10 px-3 py-2 text-sm text-cyan-100">
-            {passkeyStatus}
-          </div>
-        ) : null}
         <AuthFormField
           autoComplete="current-password"
           error={errors.password}

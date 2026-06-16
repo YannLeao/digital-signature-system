@@ -15,6 +15,8 @@ export function SignedPdfDialog({
     return null
   }
 
+  const signedAt = formatSignedAt(signedDocument.metadata.signedAt)
+
   return (
     <section className="rounded-xl border border-[#10B981]/50 bg-[#10B981]/10 p-5">
       <p className="text-sm font-semibold text-[#D1FAE5]">
@@ -27,7 +29,7 @@ export function SignedPdfDialog({
         </div>
         <div>
           <dt className="text-[#6EE7B7]">Assinado em</dt>
-          <dd>{signedDocument.metadata.signedAt}</dd>
+          <dd>{signedAt}</dd>
         </div>
       </dl>
       <div className="mt-4 flex flex-wrap gap-3">
@@ -48,4 +50,17 @@ export function SignedPdfDialog({
       </div>
     </section>
   )
+}
+
+function formatSignedAt(value: string): string {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(date)
 }
