@@ -105,6 +105,22 @@ public class ActiveSessionService {
         auditService.logSuccess(userId, AuditAction.LOGOUT, clientContext.ipAddress(), clientContext.userAgent());
     }
 
+    @Transactional
+    public void revokeOtherSessions(UUID userId, UUID currentSessionId, ClientContext clientContext) {
+        Instant now = Instant.now(clock);
+        List<ActiveSession> sessions = activeSessionRepository.findByUserIdAndIsActiveTrue(userId)
+                .stream()
+                .filter(session -> !session.getSessionId().equals(currentSessionId))
+                .toList();
+
+        for (ActiveSession session : sessions) {
+            session.deactivate(now);
+            refreshTokenService.revokeSession(session.getSessionId());
+        }
+
+        activeSessionRepository.saveAll(sessions);
+    }
+
     private SessionResponse toResponse(ActiveSession session) {
         return new SessionResponse(
                 session.getSessionId(),

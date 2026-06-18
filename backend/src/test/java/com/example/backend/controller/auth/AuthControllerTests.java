@@ -27,6 +27,7 @@ import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
 import com.example.backend.service.auth.TotpVerifyService;
 import com.example.backend.service.auth.UserLoginService;
+import com.example.backend.service.auth.UserPasswordService;
 import com.example.backend.service.auth.UserRegistrationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,7 @@ class AuthControllerTests {
     private ActiveSessionService activeSessionService;
     private ApplicationEventPublisher eventPublisher;
     private UserRepository userRepository;
+    private UserPasswordService userPasswordService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -95,6 +97,7 @@ class AuthControllerTests {
         activeSessionService = mock(ActiveSessionService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         userRepository = mock(UserRepository.class);
+        userPasswordService = mock(UserPasswordService.class);
 
         when(refreshTokenCookieFactory.cookieName()).thenReturn("refresh_token");
         when(refreshTokenCookieFactory.create(any())).thenAnswer(invocation -> ResponseCookie.from("refresh_token", invocation.getArgument(0))
@@ -144,7 +147,8 @@ class AuthControllerTests {
                         auditService,
                         activeSessionService,
                         eventPublisher,
-                        userRepository
+                        userRepository,
+                        userPasswordService
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
@@ -483,6 +487,52 @@ class AuthControllerTests {
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
 
         verify(jwtLogoutService).logout(jwt);
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void changePasswordUsesAuthenticatedSubjectAndCurrentSession() throws Exception {
+        Jwt jwt = jwt();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
+
+        mockMvc.perform(post("/auth/password")
+                        .with(request -> {
+                            request.setRemoteAddr("203.0.113.10");
+                            return request;
+                        })
+                        .header("User-Agent", "JUnit/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"CurrentPassword123!","newPassword":"NewPassword123!"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Senha alterada com sucesso."));
+
+        verify(userPasswordService).changePassword(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                UUID.fromString("33333333-3333-3333-3333-333333333333"),
+                "CurrentPassword123!",
+                "NewPassword123!",
+                new ClientContext("203.0.113.10", "JUnit/5")
+        );
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void changePasswordRejectsWeakNewPassword() throws Exception {
+        Jwt jwt = jwt();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
+
+        mockMvc.perform(post("/auth/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"CurrentPassword123!","newPassword":"weak"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VAL_001"))
+                .andExpect(jsonPath("$.fields[0].field").value("newPassword"));
+
+        verify(userPasswordService, never()).changePassword(any(), any(), any(), any(), any());
         SecurityContextHolder.clearContext();
     }
 
