@@ -1,30 +1,31 @@
+import {ShieldCheck} from 'lucide-react'
+
 type SignatureStampPreviewProps = {
-  signerEmail: string | null
+    signerEmail: string | null
 }
 
 export function SignatureStampPreview({
-  signerEmail,
-}: SignatureStampPreviewProps) {
-  const signer = signerEmail || 'usuario autenticado'
+                                          signerEmail,
+                                      }: SignatureStampPreviewProps) {
+    const signer = signerEmail || 'usuário autenticado'
 
-  return (
-    <div className="flex h-full w-full items-center gap-2 border border-[#06B6D4] bg-[#0B1120] px-2 text-left shadow-lg shadow-cyan-950/30">
-      <div className="relative h-7 w-7 shrink-0 bg-[#06B6D4]">
-          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-              <path d="M7 13 L11.5 17.5 L20 8" fill="none" stroke="#0B1120" strokeWidth="2.6" strokeLinecap="butt" strokeLinejoin="miter"/>
-          </svg>
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-[10px] font-semibold leading-tight text-[#F9FAFB]">
-          Assinado digitalmente
-        </p>
-        <p className="truncate text-[9px] leading-tight text-[#D1D5DB]">
-          {signer}
-        </p>
-        <p className="truncate text-[8px] leading-tight text-[#9CA3AF]">
-          SHA-256 registrado
-        </p>
-      </div>
-    </div>
-  )
+    return (
+        <div className="flex h-full w-full items-center gap-2 border-2 border-[#06B6D4] bg-[#0B1120] px-2.5 text-left shadow-xl shadow-cyan-950/40 rounded-sm">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#06B6D4] text-[#0B1120]">
+                <ShieldCheck className="h-5 w-5 stroke-[2.5]" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-[10px] font-bold uppercase tracking-wide text-white">
+                    Assinado Digitalmente
+                </p>
+                <p className="truncate text-[9px] font-medium leading-none text-[#67E8F9] my-0.5">
+                    {signer}
+                </p>
+                <p className="truncate text-[8px] tracking-tight text-[#9CA3AF]">
+                    Integridade Garantida por SHA-256
+                </p>
+            </div>
+        </div>
+    )
 }

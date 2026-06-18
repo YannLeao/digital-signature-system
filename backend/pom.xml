@@ -21,6 +21,7 @@
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<lombok.version>1.18.38</lombok.version>
 		<bouncycastle.version>1.84</bouncycastle.version>
+		<dependency-check-maven.version>12.1.0</dependency-check-maven.version>
 	</properties>
 
 	<dependencies>
@@ -164,6 +165,20 @@
 							<version>${lombok.version}</version>
 						</path>
 					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.owasp</groupId>
+				<artifactId>dependency-check-maven</artifactId>
+				<version>${dependency-check-maven.version}</version>
+				<configuration>
+					<failBuildOnCVSS>8</failBuildOnCVSS>
+					<nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+					<formats>
+						<format>HTML</format>
+						<format>JSON</format>
+					</formats>
 				</configuration>
 			</plugin>
 		</plugins>
