@@ -8,6 +8,7 @@ import {
   registerUser,
 } from '../services/authService'
 import {
+  clearAccessToken,
   getAuthenticatedEmail,
   getAccessToken,
   subscribeToAccessToken,
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getAccessToken(),
   )
   const [email, setEmail] = useState<string | null>(() => getAuthenticatedEmail())
+  const [isInitializing, setIsInitializing] = useState(() => !getAccessToken())
   const [isTwoFactorPending, setIsTwoFactorPending] = useState(false)
 
   useEffect(
@@ -34,11 +36,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   )
 
+  useEffect(() => {
+    if (getAccessToken()) {
+      return
+    }
+
+    let isMounted = true
+
+    refreshSession()
+      .catch(() => {
+        clearAccessToken()
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsInitializing(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       accessToken,
       email,
       isAuthenticated: Boolean(accessToken),
+      isInitializing,
       isTwoFactorPending,
       login: loginUser,
       logout: async () => {
@@ -47,7 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refresh: refreshSession,
       register: registerUser,
     }),
-    [accessToken, email, isTwoFactorPending],
+    [accessToken, email, isInitializing, isTwoFactorPending],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
