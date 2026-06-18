@@ -2,6 +2,7 @@ package com.example.backend.listener;
 
 import com.example.backend.event.AccountLockedEvent;
 import com.example.backend.event.NewLoginEvent;
+import com.example.backend.event.PasswordChangedEvent;
 import com.example.backend.event.TwoFactorChangedEvent;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -71,6 +72,20 @@ public class EmailNotificationListener {
                 <p>Se não foi você, recomendamos alterar sua senha assim que o bloqueio expirar.</p>
                 <br><p>Equipe de Segurança</p>
                 """.formatted(event.lockedUntil());
+
+        send(event.email(), subject, body);
+    }
+
+    @Async
+    @EventListener
+    public void onPasswordChanged(PasswordChangedEvent event) {
+        String subject = "Senha alterada com sucesso";
+        String body = """
+                <p>Ola,</p>
+                <p>A senha da sua conta foi alterada em <strong>%s UTC</strong> a partir do IP <strong>%s</strong>.</p>
+                <p>Se nao foi voce, encerre suas sessoes ativas e recupere o acesso imediatamente.</p>
+                <br><p>Equipe de Seguranca</p>
+                """.formatted(event.changedAt(), event.ip());
 
         send(event.email(), subject, body);
     }

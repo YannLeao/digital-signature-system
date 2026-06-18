@@ -22,6 +22,36 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     @Override
     @Modifying
+    default void deleteAllById(Iterable<? extends UUID> uuids) {
+        throw new UnsupportedOperationException("audit_log e append-only.");
+    }
+
+    @Override
+    @Modifying
+    default void deleteAllByIdInBatch(Iterable<UUID> uuids) {
+        throw new UnsupportedOperationException("audit_log e append-only.");
+    }
+
+    @Override
+    @Modifying
+    default void deleteAll(Iterable<? extends AuditLog> entities) {
+        throw new UnsupportedOperationException("audit_log e append-only.");
+    }
+
+    @Override
+    @Modifying
+    default void deleteAllInBatch(Iterable<AuditLog> entities) {
+        throw new UnsupportedOperationException("audit_log e append-only.");
+    }
+
+    @Override
+    @Modifying
+    default void deleteAllInBatch() {
+        throw new UnsupportedOperationException("audit_log e append-only.");
+    }
+
+    @Override
+    @Modifying
     default void deleteAll() {
         throw new UnsupportedOperationException("audit_log e append-only.");
     }

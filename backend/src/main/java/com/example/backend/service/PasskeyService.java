@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.domain.Passkey;
+import com.example.backend.domain.AuditAction;
 import com.example.backend.domain.User;
 import com.example.backend.dto.passkey.PasskeyResponse;
 import com.example.backend.exception.BusinessException;
@@ -14,6 +15,8 @@ import com.example.backend.security.JwtService;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.auth.RefreshTokenService;
+import com.example.backend.service.audit.AuditService;
+import com.example.backend.service.session.ActiveSessionService;
 import com.yubico.webauthn.AssertionRequest;
 import com.yubico.webauthn.AssertionResult;
 import com.yubico.webauthn.FinishAssertionOptions;
@@ -60,6 +63,8 @@ public class PasskeyService {
 	private final PasskeyRepository passkeyRepository;
 	private final JwtService jwtService;
 	private final RefreshTokenService refreshTokenService;
+	private final ActiveSessionService activeSessionService;
+	private final AuditService auditService;
 	private final Clock clock;
 	private final ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingRegistrationOptions;
 	private final ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions;
@@ -71,7 +76,9 @@ public class PasskeyService {
 			UserRepository userRepository,
 			PasskeyRepository passkeyRepository,
 			JwtService jwtService,
-			RefreshTokenService refreshTokenService
+			RefreshTokenService refreshTokenService,
+			ActiveSessionService activeSessionService,
+			AuditService auditService
 	) {
 		this(
 				relyingParty,
@@ -79,6 +86,8 @@ public class PasskeyService {
 				passkeyRepository,
 				jwtService,
 				refreshTokenService,
+				activeSessionService,
+				auditService,
 				Clock.systemUTC(),
 				new ConcurrentHashMap<>(),
 				new ConcurrentHashMap<>(),
@@ -92,6 +101,8 @@ public class PasskeyService {
 			PasskeyRepository passkeyRepository,
 			JwtService jwtService,
 			RefreshTokenService refreshTokenService,
+			ActiveSessionService activeSessionService,
+			AuditService auditService,
 			Clock clock,
 			ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingRegistrationOptions,
 			ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions,
@@ -102,6 +113,8 @@ public class PasskeyService {
 		this.passkeyRepository = passkeyRepository;
 		this.jwtService = jwtService;
 		this.refreshTokenService = refreshTokenService;
+		this.activeSessionService = activeSessionService;
+		this.auditService = auditService;
 		this.clock = clock;
 		this.pendingRegistrationOptions = pendingRegistrationOptions;
 		this.pendingAuthenticationOptions = pendingAuthenticationOptions;
@@ -254,11 +267,16 @@ public class PasskeyService {
 			UUID sessionId = UUID.randomUUID();
 			AccessToken accessToken = jwtService.issueAccessToken(user, clientContext, sessionId);
 			RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
-			return new RefreshTokenResult(accessToken, refreshToken.rawToken());
+			activeSessionService.register(sessionId, user.getId(), clientContext);
+			auditService.logSuccess(user.getId(), AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
+			auditService.logSuccess(user.getId(), AuditAction.TOKEN_ISSUED, clientContext.ipAddress(), clientContext.userAgent());
+			return new RefreshTokenResult(accessToken, refreshToken.rawToken(), sessionId);
 		} catch (PasskeyAuthenticationFailedException exception) {
+			auditService.logFailure(user.getId(), AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
 			throw exception;
 		} catch (Exception exception) {
 			LOGGER.warn("Falha na validacao da credencial de passkey para usuario: {}", normalizedEmail);
+			auditService.logFailure(user.getId(), AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
 			throw new PasskeyAuthenticationFailedException();
 		}
 	}

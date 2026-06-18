@@ -36,6 +36,16 @@ const csrfExemptPaths = new Set([
   '/auth/passkey/register/finish',
   '/auth/passkey/auth/start',
   '/auth/passkey/auth/finish',
+  '/verify',
+])
+const publicPaths = new Set([
+  '/auth/register',
+  '/auth/login',
+  '/auth/passkey/register/start',
+  '/auth/passkey/register/finish',
+  '/auth/passkey/auth/start',
+  '/auth/passkey/auth/finish',
+  '/verify',
 ])
 let refreshRequest: Promise<string | null> | null = null
 
@@ -50,7 +60,9 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   const headers = AxiosHeaders.from(config.headers)
-  const token = authorizationTokenFor(config.url ?? '')
+  const token = shouldAttachAuthorization(config.url ?? '')
+    ? authorizationTokenFor(config.url ?? '')
+    : null
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
@@ -153,11 +165,12 @@ function shouldRefreshAccessToken(config: RetriableRequestConfig): boolean {
   }
 
   const url = config.url ?? ''
+  const pathname = pathnameFor(url)
+
   return (
-    !url.endsWith('/auth/login') &&
-    !url.endsWith('/auth/register') &&
-    !url.endsWith('/auth/2fa/verify') &&
-    !url.endsWith('/auth/refresh')
+    !publicPaths.has(pathname) &&
+    pathname !== '/auth/2fa/verify' &&
+    pathname !== '/auth/refresh'
   )
 }
 
@@ -177,6 +190,10 @@ function pathnameFor(url: string): string {
   } catch {
     return url.replace(/^\/api\/v1/, '')
   }
+}
+
+function shouldAttachAuthorization(url: string): boolean {
+  return !publicPaths.has(pathnameFor(url))
 }
 
 function parseRefreshResponse(data: unknown): RefreshResponse | null {

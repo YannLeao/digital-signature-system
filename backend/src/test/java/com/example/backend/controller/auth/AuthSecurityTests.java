@@ -252,7 +252,7 @@ class AuthSecurityTests {
 
 	@Test
 	void permitsVersionedPublicVerifyWithoutAuthenticationOrCsrfToken() throws Exception {
-		when(pdfVerificationService.verify(any())).thenReturn(VerifyDocumentResponse.notFound());
+		when(pdfVerificationService.verify(any(), any())).thenReturn(VerifyDocumentResponse.notFound());
 
 		mockMvc.perform(multipart("/api/v1/verify")
 						.file("file", "%PDF-".getBytes())

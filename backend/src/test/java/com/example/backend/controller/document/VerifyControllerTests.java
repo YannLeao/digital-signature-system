@@ -28,7 +28,7 @@ class VerifyControllerTests {
 
     @Test
     void publicUploadReturnsVerificationResultWithoutAuthentication() throws Exception {
-        when(verificationService.verify(any())).thenReturn(VerifyDocumentResponse.notFound());
+        when(verificationService.verify(any(), any())).thenReturn(VerifyDocumentResponse.notFound());
 
         mockMvc.perform(multipart("/verify")
                         .file(pdfFile())
@@ -39,7 +39,7 @@ class VerifyControllerTests {
 
     @Test
     void eleventhVerificationFromSameIpReturnsTooManyRequests() throws Exception {
-        when(verificationService.verify(any())).thenReturn(VerifyDocumentResponse.notFound());
+        when(verificationService.verify(any(), any())).thenReturn(VerifyDocumentResponse.notFound());
 
         for (int attempt = 0; attempt < 10; attempt++) {
             mockMvc.perform(multipart("/verify")

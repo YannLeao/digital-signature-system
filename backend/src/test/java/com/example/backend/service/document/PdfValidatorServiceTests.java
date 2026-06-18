@@ -75,7 +75,7 @@ class PdfValidatorServiceTests {
 
         assertThatThrownBy(() -> service.validateAndRead(file))
                 .isInstanceOf(PdfValidationException.class)
-                .hasMessage("Arquivo invalido: magic number %PDF- nao encontrado.");
+                .hasMessage("O arquivo enviado nao e um PDF valido ou esta corrompido.");
     }
 
     @Test

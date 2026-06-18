@@ -14,8 +14,10 @@ import com.example.backend.dto.auth.TotpStatusResponse;
 import com.example.backend.dto.auth.TotpVerifyRequest;
 import com.example.backend.dto.auth.TotpVerifyResponse;
 import com.example.backend.domain.User;
+import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.exception.InvalidAccessTokenException;
 import com.example.backend.exception.InvalidRefreshTokenException;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.security.AccessToken;
 import com.example.backend.security.ClientContext;
 import com.example.backend.security.CsrfTokenService;
@@ -70,6 +72,7 @@ public class AuthController {
     private final AuditService auditService;
     private final ActiveSessionService activeSessionService;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserRepository userRepository;
 
     public AuthController(
             UserRegistrationService userRegistrationService,
@@ -85,7 +88,8 @@ public class AuthController {
             TotpVerifyService totpVerifyService,
             AuditService auditService,
             ActiveSessionService activeSessionService,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            UserRepository userRepository
     ) {
         this.userRegistrationService = userRegistrationService;
         this.userLoginService = userLoginService;
@@ -101,6 +105,7 @@ public class AuthController {
         this.auditService = auditService;
         this.activeSessionService = activeSessionService;
         this.eventPublisher = eventPublisher;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/register")
@@ -118,8 +123,8 @@ public class AuthController {
         User user;
         try {
             user = userLoginService.login(request, clientContext.ipAddress());
-        } catch (Exception ex) {
-            auditService.logFailure(null, AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
+        } catch (AuthenticationFailedException ex) {
+            auditService.logFailure(ex.userId(), AuditAction.AUTH_FAIL, clientContext.ipAddress(), clientContext.userAgent());
             throw ex;
         }
 
@@ -136,6 +141,7 @@ public class AuthController {
         RefreshTokenPair refreshToken = refreshTokenService.issueForLogin(user, clientContext, sessionId);
         activeSessionService.register(sessionId, user.getId(), clientContext);
         auditService.logSuccess(user.getId(), AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
+        auditService.logSuccess(user.getId(), AuditAction.TOKEN_ISSUED, clientContext.ipAddress(), clientContext.userAgent());
         return accessTokenResponse(accessToken, refreshToken.rawToken());
     }
 
@@ -153,10 +159,6 @@ public class AuthController {
         }
         UUID userId = UUID.fromString(jwt.getSubject());
         TotpSetupResponse response = totpSetupService.setup(userId);
-        eventPublisher.publishEvent(new TwoFactorChangedEvent(
-                userId, jwt.getSubject(), true,
-                servletRequest.getRemoteAddr(), java.time.Instant.now()
-        ));
         return ResponseEntity.ok(response);
     }
 
@@ -172,13 +174,22 @@ public class AuthController {
     @PostMapping("/2fa/setup/confirm")
     ResponseEntity<TotpSetupConfirmResponse> confirm2faSetup(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody TotpVerifyRequest request
+            @Valid @RequestBody TotpVerifyRequest request,
+            HttpServletRequest servletRequest
     ) {
         if (jwt == null) {
             throw new InvalidAccessTokenException();
         }
         UUID userId = UUID.fromString(jwt.getSubject());
-        return ResponseEntity.ok(totpSetupService.confirm(userId, request.code()));
+        TotpSetupConfirmResponse response = totpSetupService.confirm(userId, request.code());
+        String email = userRepository.findById(userId)
+                .map(User::getEmail)
+                .orElse(jwt.getSubject());
+        eventPublisher.publishEvent(new TwoFactorChangedEvent(
+                userId, email, true,
+                servletRequest.getRemoteAddr(), java.time.Instant.now()
+        ));
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/2fa/verify")
@@ -205,6 +216,7 @@ public class AuthController {
         jwtLogoutService.logout(jwt);
         activeSessionService.register(result.sessionId(), userId, clientContext);
         auditService.logSuccess(userId, AuditAction.LOGIN, clientContext.ipAddress(), clientContext.userAgent());
+        auditService.logSuccess(userId, AuditAction.TOKEN_ISSUED, clientContext.ipAddress(), clientContext.userAgent());
         return ResponseEntity.ok()
                 .header(
                         HttpHeaders.SET_COOKIE,

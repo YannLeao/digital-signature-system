@@ -9,11 +9,14 @@ import com.example.backend.dto.document.VerifyStatus;
 import com.example.backend.exception.PdfValidationException;
 import com.example.backend.repository.DocumentSignatureRepository;
 import com.example.backend.repository.UserKeyRepository;
+import com.example.backend.security.ClientContext;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.security.UserKeyEncryptionService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayOutputStream;
@@ -41,10 +44,13 @@ class PdfVerificationServiceTests {
     private final PdfValidatorService validator = mock(PdfValidatorService.class);
     private final DocumentSignatureRepository signatureRepository = mock(DocumentSignatureRepository.class);
     private final UserKeyRepository userKeyRepository = mock(UserKeyRepository.class);
+    private final AuditService auditService = mock(AuditService.class);
+    private final ClientContext clientContext = new ClientContext("203.0.113.10", "JUnit/5");
     private final PdfVerificationService service = new PdfVerificationService(
             validator,
             signatureRepository,
-            userKeyRepository
+            userKeyRepository,
+            auditService
     );
 
     @Test
@@ -57,7 +63,7 @@ class PdfVerificationServiceTests {
         when(userKeyRepository.findByUserId(fixture.user().getId()))
                 .thenReturn(Optional.of(fixture.userKey()));
 
-        var response = service.verify(file);
+        var response = service.verify(file, clientContext);
 
         assertThat(response.status()).isEqualTo(VerifyStatus.VALID);
         assertThat(response.signature()).isNotNull();
@@ -67,12 +73,22 @@ class PdfVerificationServiceTests {
     }
 
     @Test
+    void verificationRunsInsideReadOnlyTransactionForLazySignatureRelations() throws Exception {
+        Transactional transactional = PdfVerificationService.class
+                .getMethod("verify", org.springframework.web.multipart.MultipartFile.class, ClientContext.class)
+                .getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.readOnly()).isTrue();
+    }
+
+    @Test
     void unsignedPdfReturnsNotFound() throws Exception {
         byte[] unsignedPdf = validPdf();
         MockMultipartFile file = pdfFile(unsignedPdf);
         when(validator.validateAndRead(file)).thenReturn(unsignedPdf);
 
-        var response = service.verify(file);
+        var response = service.verify(file, clientContext);
 
         assertThat(response.status()).isEqualTo(VerifyStatus.NOT_FOUND);
         verify(signatureRepository, never()).findBySignatureId(any());
@@ -88,7 +104,7 @@ class PdfVerificationServiceTests {
         when(signatureRepository.findBySignedHash(fixture.result().signedHash()))
                 .thenReturn(Optional.empty());
 
-        var response = service.verify(file);
+        var response = service.verify(file, clientContext);
 
         assertThat(response.status()).isEqualTo(VerifyStatus.NOT_FOUND);
     }
@@ -103,7 +119,7 @@ class PdfVerificationServiceTests {
         when(signatureRepository.findBySignatureId(fixture.record().getSignatureId()))
                 .thenReturn(Optional.of(fixture.record()));
 
-        var response = service.verify(file);
+        var response = service.verify(file, clientContext);
 
         assertThat(response.status()).isEqualTo(VerifyStatus.TAMPERED);
         verify(userKeyRepository, never()).findByUserId(any());
@@ -117,7 +133,7 @@ class PdfVerificationServiceTests {
         when(signatureRepository.findBySignatureId(fixture.record().getSignatureId()))
                 .thenReturn(Optional.of(fixture.record()));
 
-        var response = service.verify(file);
+        var response = service.verify(file, clientContext);
 
         assertThat(response.status()).isEqualTo(VerifyStatus.TAMPERED);
         verify(userKeyRepository, never()).findByUserId(any());
@@ -129,7 +145,7 @@ class PdfVerificationServiceTests {
         when(validator.validateAndRead(file))
                 .thenThrow(new PdfValidationException("DOC_001", "Documento PDF invalido."));
 
-        assertThatThrownBy(() -> service.verify(file))
+        assertThatThrownBy(() -> service.verify(file, clientContext))
                 .isInstanceOf(PdfValidationException.class)
                 .hasMessage("Documento PDF invalido.");
     }
