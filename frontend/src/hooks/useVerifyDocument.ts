@@ -113,6 +113,15 @@ function messageForError(
   message: string,
 ): string {
   if (status === 400 || code?.startsWith('DOC_') || code?.startsWith('VAL_')) {
+    if (
+      code?.startsWith('DOC_') &&
+      (message.includes('magic number') ||
+        message.includes('nao e um PDF') ||
+        message.includes('corrompido'))
+    ) {
+      return 'O arquivo enviado nao e um PDF valido ou esta corrompido.'
+    }
+
     return message || 'O arquivo enviado nao e um PDF valido.'
   }
 

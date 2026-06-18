@@ -4,12 +4,15 @@ import com.example.backend.domain.ActiveSession;
 import com.example.backend.domain.AuditAction;
 import com.example.backend.domain.User;
 import com.example.backend.dto.session.SessionResponse;
+import com.example.backend.event.NewLoginEvent;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.repository.ActiveSessionRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.ClientContext;
 import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.auth.RefreshTokenService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,15 +28,18 @@ public class ActiveSessionService {
     private final UserRepository userRepository;
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
+    @Autowired
     public ActiveSessionService(
             ActiveSessionRepository activeSessionRepository,
             UserRepository userRepository,
             RefreshTokenService refreshTokenService,
-            AuditService auditService
+            AuditService auditService,
+            ApplicationEventPublisher eventPublisher
     ) {
-        this(activeSessionRepository, userRepository, refreshTokenService, auditService, Clock.systemUTC());
+        this(activeSessionRepository, userRepository, refreshTokenService, auditService, eventPublisher, Clock.systemUTC());
     }
 
     ActiveSessionService(
@@ -41,12 +47,14 @@ public class ActiveSessionService {
             UserRepository userRepository,
             RefreshTokenService refreshTokenService,
             AuditService auditService,
+            ApplicationEventPublisher eventPublisher,
             Clock clock
     ) {
         this.activeSessionRepository = activeSessionRepository;
         this.userRepository = userRepository;
         this.refreshTokenService = refreshTokenService;
         this.auditService = auditService;
+        this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
@@ -54,8 +62,12 @@ public class ActiveSessionService {
     public void register(UUID sessionId, UUID userId, ClientContext clientContext) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario nao encontrado."));
+        boolean unknownIp = !activeSessionRepository.existsByUserIdAndIp(userId, clientContext.ipAddress());
         ActiveSession session = ActiveSession.create(sessionId, user, clientContext.ipAddress(), clientContext.userAgent(), Instant.now(clock));
         activeSessionRepository.save(session);
+        if (unknownIp) {
+            eventPublisher.publishEvent(new NewLoginEvent(user.getId(), user.getEmail(), clientContext.ipAddress(), session.getCreatedAt()));
+        }
     }
 
     @Transactional(readOnly = true)
@@ -68,8 +80,7 @@ public class ActiveSessionService {
 
     @Transactional
     public void revokeSession(UUID userId, UUID sessionId, ClientContext clientContext) {
-        ActiveSession session = activeSessionRepository.findById(sessionId)
-                .filter(s -> s.getUser().getId().equals(userId))
+        ActiveSession session = activeSessionRepository.findBySessionIdAndUserIdAndIsActiveTrue(sessionId, userId)
                 .orElseThrow(ResourceNotFoundException::new);
 
         Instant now = Instant.now(clock);

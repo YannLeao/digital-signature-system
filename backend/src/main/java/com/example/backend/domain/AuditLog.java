@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -24,27 +25,28 @@ public class AuditLog {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", updatable = false)
     private User user;
 
     @Column(name = "timestamp_utc", nullable = false, updatable = false)
     private Instant timestampUtc;
 
-    @Column(columnDefinition = "inet")
+    @Column(columnDefinition = "inet", updatable = false)
+    @ColumnTransformer(write = "?::inet")
     private String ip;
 
-    @Column(name = "user_agent", columnDefinition = "text")
+    @Column(name = "user_agent", columnDefinition = "text", updatable = false)
     private String userAgent;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 120)
+    @Column(nullable = false, length = 120, updatable = false)
     private AuditAction action;
 
-    @Column(nullable = false, length = 60)
+    @Column(nullable = false, length = 60, updatable = false)
     private String result;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, columnDefinition = "jsonb")
+    @Column(nullable = false, columnDefinition = "jsonb", updatable = false)
     private String metadata;
 
     protected AuditLog() {

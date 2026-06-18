@@ -1,11 +1,14 @@
 package com.example.backend.controller.document;
 
+import com.example.backend.domain.AuditAction;
 import com.example.backend.domain.User;
 import com.example.backend.dto.document.SignDocumentRequest;
 import com.example.backend.dto.document.SignedPdfResult;
 import com.example.backend.exception.ApiErrorCode;
 import com.example.backend.exception.ApiException;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.ClientContext;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.document.PdfSigningService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,15 +37,18 @@ public class DocumentController {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final Validator validator;
+    private final AuditService auditService;
 
     public DocumentController(PdfSigningService pdfSigningService,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
-                              Validator validator) {
+                              Validator validator,
+                              AuditService auditService) {
         this.pdfSigningService = pdfSigningService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.validator = validator;
+        this.auditService = auditService;
     }
 
     @PostMapping(value = "sign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -57,12 +63,21 @@ public class DocumentController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("Usuario nao encontrado."));
 
-        SignedPdfResult result = pdfSigningService.sign(
-                file,
-                request,
-                user,
-                servletRequest.getRemoteAddr(),
-                Instant.now()
+        ClientContext clientContext = new ClientContext(servletRequest.getRemoteAddr(), servletRequest.getHeader("User-Agent"));
+        SignedPdfResult result;
+        try {
+            result = pdfSigningService.sign(file, request, user, clientContext.ipAddress(), Instant.now());
+        } catch (RuntimeException exception) {
+            auditService.logFailure(userId, AuditAction.DOC_SIGNED, clientContext.ipAddress(), clientContext.userAgent());
+            throw exception;
+        }
+
+        auditService.logSuccess(
+                userId,
+                AuditAction.DOC_SIGNED,
+                clientContext.ipAddress(),
+                clientContext.userAgent(),
+                "{\"signatureId\":\"" + result.signatureId() + "\"}"
         );
 
         return ResponseEntity.ok()

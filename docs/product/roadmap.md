@@ -51,13 +51,13 @@ Detalhes completos de cada card devem ficar nos arquivos especificos de epicos e
 ## EPIC-07 - Verificacao Publica
 
 - [x] VERIFY-01 - Endpoint publico de verificacao
-- [ ] VERIFY-02 - Tela publica de verificacao
+- [x] VERIFY-02 - Tela publica de verificacao
 
 ## EPIC-08 - Sessoes, Auditoria e Notificacoes
 
-- [ ] AUDIT-01 - Log imutavel de auditoria
-- [ ] AUDIT-02 - Sessoes ativas e revogacao
-- [ ] AUDIT-03 - Notificacoes por e-mail
+- [x] AUDIT-01 - Log imutavel de auditoria
+- [x] AUDIT-02 - Sessoes ativas e revogacao
+- [x] AUDIT-03 - Notificacoes por e-mail
 - [ ] AUDIT-04 - Tela de sessoes e historico
 
 ## EPIC-09 - CSRF e Seguranca Complementar

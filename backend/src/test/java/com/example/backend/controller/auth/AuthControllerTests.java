@@ -20,6 +20,7 @@ import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
 import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.session.ActiveSessionService;
+import com.example.backend.repository.UserRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import com.example.backend.service.auth.LoginRateLimiter;
 import com.example.backend.service.auth.RefreshTokenService;
@@ -74,6 +75,7 @@ class AuthControllerTests {
     private AuditService auditService;
     private ActiveSessionService activeSessionService;
     private ApplicationEventPublisher eventPublisher;
+    private UserRepository userRepository;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -92,6 +94,7 @@ class AuthControllerTests {
         auditService = mock(AuditService.class);
         activeSessionService = mock(ActiveSessionService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
+        userRepository = mock(UserRepository.class);
 
         when(refreshTokenCookieFactory.cookieName()).thenReturn("refresh_token");
         when(refreshTokenCookieFactory.create(any())).thenAnswer(invocation -> ResponseCookie.from("refresh_token", invocation.getArgument(0))
@@ -140,7 +143,8 @@ class AuthControllerTests {
                         totpVerifyService,
                         auditService,
                         activeSessionService,
-                        eventPublisher
+                        eventPublisher,
+                        userRepository
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
@@ -354,6 +358,13 @@ class AuthControllerTests {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(jwt, null));
         when(totpSetupService.confirm(UUID.fromString("11111111-1111-1111-1111-111111111111"), "123456"))
                 .thenReturn(new TotpSetupConfirmResponse(List.of("ABCDEF1234567890ABCD")));
+        when(userRepository.findById(UUID.fromString("11111111-1111-1111-1111-111111111111")))
+                .thenReturn(java.util.Optional.of(User.register(
+                        UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        "user@example.com",
+                        "password-hash",
+                        Instant.parse("2026-05-22T12:00:00Z")
+                )));
 
         mockMvc.perform(post("/auth/2fa/setup/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -364,6 +375,7 @@ class AuthControllerTests {
                 .andExpect(jsonPath("$.backupCodes[0]").value("ABCDEF1234567890ABCD"));
 
         verify(totpSetupService).confirm(UUID.fromString("11111111-1111-1111-1111-111111111111"), "123456");
+        verify(eventPublisher).publishEvent(any(com.example.backend.event.TwoFactorChangedEvent.class));
         SecurityContextHolder.clearContext();
     }
 

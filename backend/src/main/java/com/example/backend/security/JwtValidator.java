@@ -5,8 +5,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import com.example.backend.repository.ActiveSessionRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class JwtValidator {
@@ -36,16 +38,19 @@ public class JwtValidator {
 
 	private final JwtDecoder jwtDecoder;
 	private final JwtDenylistService jwtDenylistService;
+	private final ActiveSessionRepository activeSessionRepository;
 
 	@Autowired
-	public JwtValidator(JwtDecoder jwtDecoder, JwtDenylistService jwtDenylistService) {
+	public JwtValidator(JwtDecoder jwtDecoder, JwtDenylistService jwtDenylistService, ActiveSessionRepository activeSessionRepository) {
 		this.jwtDecoder = jwtDecoder;
 		this.jwtDenylistService = jwtDenylistService;
+		this.activeSessionRepository = activeSessionRepository;
 	}
 
 	JwtValidator(JwtDecoder jwtDecoder) {
 		this.jwtDecoder = jwtDecoder;
 		this.jwtDenylistService = null;
+		this.activeSessionRepository = null;
 	}
 
 	public Jwt validate(String token) {
@@ -57,6 +62,7 @@ public class JwtValidator {
 		validateRequiredClaims(jwt, REQUIRED_CLAIMS);
 		validateClaim(jwt, "token_use", JwtClaimsFactory.TOKEN_USE_ACCESS);
 		validateDenylist(jwt);
+		validateActiveSession(jwt);
 		return jwt;
 	}
 
@@ -88,6 +94,16 @@ public class JwtValidator {
 	private void validateDenylist(Jwt jwt) {
 		if (jwtDenylistService != null && jwtDenylistService.isDenylisted(jwt.getId())) {
 			throw new BadJwtException("JWT has been revoked.");
+		}
+	}
+
+	private void validateActiveSession(Jwt jwt) {
+		if (activeSessionRepository == null) {
+			return;
+		}
+		UUID sessionId = UUID.fromString(jwt.getClaimAsString("session_id"));
+		if (!activeSessionRepository.existsBySessionIdAndIsActiveTrue(sessionId)) {
+			throw new BadJwtException("JWT session is not active.");
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package com.example.backend.controller.document;
 
 import com.example.backend.dto.document.VerifyDocumentResponse;
+import com.example.backend.security.ClientContext;
 import com.example.backend.service.document.PdfVerificationService;
 import com.example.backend.service.document.VerifyRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +31,6 @@ public class VerifyController {
             HttpServletRequest request
     ) {
         verifyRateLimiter.consume(request.getRemoteAddr());
-        return pdfVerificationService.verify(file);
+        return pdfVerificationService.verify(file, new ClientContext(request.getRemoteAddr(), request.getHeader("User-Agent")));
     }
 }

@@ -5,6 +5,7 @@ import com.example.backend.domain.AuditLog;
 import com.example.backend.domain.User;
 import com.example.backend.repository.AuditLogRepository;
 import com.example.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class AuditService {
     private final UserRepository userRepository;
     private final Clock clock;
 
+    @Autowired
     public AuditService(AuditLogRepository auditLogRepository, UserRepository userRepository) {
         this(auditLogRepository, userRepository, Clock.systemUTC());
     }

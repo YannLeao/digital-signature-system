@@ -3,7 +3,6 @@ package com.example.backend.service.auth;
 import com.example.backend.domain.User;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.event.AccountLockedEvent;
-import com.example.backend.event.NewLoginEvent;
 import com.example.backend.exception.AuthenticationFailedException;
 import com.example.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,16 +56,15 @@ public class UserLoginService {
 		User user = userCandidate.get();
 
 		if (user.isLockedAt(now)) {
-			throw new AuthenticationFailedException();
+			throw new AuthenticationFailedException(user.getId());
 		}
 
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			registerFailure(user, now);
-			throw new AuthenticationFailedException();
+			throw new AuthenticationFailedException(user.getId());
 		}
 
 		user.clearLoginFailures(now);
-		eventPublisher.publishEvent(new NewLoginEvent(user.getId(), user.getEmail(), ip, now));
 		return user;
 	}
 

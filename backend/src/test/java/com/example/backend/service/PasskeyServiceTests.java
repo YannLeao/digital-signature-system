@@ -12,7 +12,9 @@ import com.example.backend.security.ClientContext;
 import com.example.backend.security.JwtService;
 import com.example.backend.security.RefreshTokenPair;
 import com.example.backend.security.RefreshTokenResult;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.auth.RefreshTokenService;
+import com.example.backend.service.session.ActiveSessionService;
 import com.yubico.webauthn.AssertionRequest;
 import com.yubico.webauthn.AssertionResult;
 import com.yubico.webauthn.RelyingParty;
@@ -53,6 +55,8 @@ class PasskeyServiceTests {
 	private final PasskeyRepository passkeyRepository = mock(PasskeyRepository.class);
 	private final JwtService jwtService = mock(JwtService.class);
 	private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+	private final ActiveSessionService activeSessionService = mock(ActiveSessionService.class);
+	private final AuditService auditService = mock(AuditService.class);
 	private final ConcurrentMap<String, PublicKeyCredentialCreationOptions> pendingOptions = new ConcurrentHashMap<>();
 	private final ConcurrentMap<String, AssertionRequest> pendingAuthenticationOptions = new ConcurrentHashMap<>();
 
@@ -65,6 +69,8 @@ class PasskeyServiceTests {
 			passkeyRepository,
 			jwtService,
 			refreshTokenService,
+			activeSessionService,
+			auditService,
 			CLOCK,
 			pendingOptions,
 			pendingAuthenticationOptions,

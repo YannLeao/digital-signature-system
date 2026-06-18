@@ -92,12 +92,12 @@ public class PdfValidatorService {
 
     private void validateMagicNumber(byte[] bytes) {
         if (bytes.length < PDF_MAGIC.length) {
-            throw invalid("Arquivo invalido: nao e um PDF.");
+            throw invalid("O arquivo enviado nao e um PDF valido ou esta corrompido.");
         }
 
         for (int i = 0; i < PDF_MAGIC.length; i++) {
             if (bytes[i] != PDF_MAGIC[i]) {
-                throw invalid("Arquivo invalido: magic number %PDF- nao encontrado.");
+                throw invalid("O arquivo enviado nao e um PDF valido ou esta corrompido.");
             }
         }
     }

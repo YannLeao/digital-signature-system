@@ -1,11 +1,15 @@
 package com.example.backend.service.document;
 
+import com.example.backend.domain.AuditAction;
 import com.example.backend.domain.DocumentSignature;
 import com.example.backend.domain.UserKey;
 import com.example.backend.dto.document.VerifyDocumentResponse;
+import com.example.backend.dto.document.VerifyStatus;
 import com.example.backend.dto.document.VerifySignatureData;
 import com.example.backend.repository.DocumentSignatureRepository;
 import com.example.backend.repository.UserKeyRepository;
+import com.example.backend.security.ClientContext;
+import com.example.backend.service.audit.AuditService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
@@ -17,6 +21,7 @@ import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.KeyFactory;
@@ -46,23 +51,29 @@ public class PdfVerificationService {
     private final PdfValidatorService pdfValidatorService;
     private final DocumentSignatureRepository signatureRepository;
     private final UserKeyRepository userKeyRepository;
+    private final AuditService auditService;
 
     public PdfVerificationService(PdfValidatorService pdfValidatorService,
                                   DocumentSignatureRepository signatureRepository,
-                                  UserKeyRepository userKeyRepository) {
+                                  UserKeyRepository userKeyRepository,
+                                  AuditService auditService) {
         this.pdfValidatorService = pdfValidatorService;
         this.signatureRepository = signatureRepository;
         this.userKeyRepository = userKeyRepository;
+        this.auditService = auditService;
     }
 
-    public VerifyDocumentResponse verify(MultipartFile file) {
+    @Transactional(readOnly = true)
+    public VerifyDocumentResponse verify(MultipartFile file, ClientContext clientContext) {
         byte[] pdfBytes = pdfValidatorService.validateAndRead(file);
         String receivedHash = sha256Hex(pdfBytes);
 
         try (PDDocument document = Loader.loadPDF(pdfBytes)) {
             List<PDSignature> signatures = document.getSignatureDictionaries();
             if (signatures.isEmpty()) {
-                return VerifyDocumentResponse.notFound();
+                VerifyDocumentResponse response = VerifyDocumentResponse.notFound();
+                logVerification(null, response.status(), clientContext, null);
+                return response;
             }
 
             for (PDSignature signature : signatures) {
@@ -73,45 +84,69 @@ public class PdfVerificationService {
 
                 Optional<DocumentSignature> record = signatureRepository.findBySignatureId(signatureId.get());
                 if (record.isPresent()) {
-                    return evaluate(record.get(), signature, pdfBytes, receivedHash);
+                    return evaluate(record.get(), signature, pdfBytes, receivedHash, clientContext);
                 }
             }
 
             Optional<DocumentSignature> recordByHash = signatureRepository.findBySignedHash(receivedHash);
             if (recordByHash.isPresent()) {
-                return evaluate(recordByHash.get(), signatures.getLast(), pdfBytes, receivedHash);
+                return evaluate(recordByHash.get(), signatures.getLast(), pdfBytes, receivedHash, clientContext);
             }
 
-            return VerifyDocumentResponse.notFound();
+            VerifyDocumentResponse response = VerifyDocumentResponse.notFound();
+            logVerification(null, response.status(), clientContext, null);
+            return response;
         } catch (Exception exception) {
-            return VerifyDocumentResponse.notFound();
+            VerifyDocumentResponse response = VerifyDocumentResponse.notFound();
+            logVerification(null, response.status(), clientContext, null);
+            return response;
         }
     }
 
     private VerifyDocumentResponse evaluate(DocumentSignature record,
                                             PDSignature signature,
                                             byte[] pdfBytes,
-                                            String receivedHash) {
+                                            String receivedHash,
+                                            ClientContext clientContext) {
         if (!receivedHash.equals(record.getSignedHash())) {
-            return VerifyDocumentResponse.tampered();
+            VerifyDocumentResponse response = VerifyDocumentResponse.tampered();
+            logVerification(record.getUser().getId(), response.status(), clientContext, record.getSignatureId());
+            return response;
         }
 
         UserKey userKey = userKeyRepository.findByUserId(record.getUser().getId())
                 .orElse(null);
         if (userKey == null) {
-            return VerifyDocumentResponse.notFound();
+            VerifyDocumentResponse response = VerifyDocumentResponse.notFound();
+            logVerification(record.getUser().getId(), response.status(), clientContext, record.getSignatureId());
+            return response;
         }
 
         PublicKey publicKey = decodePublicKey(userKey.getPublicKey(), userKey.getKeyAlgorithm());
         if (!verifyEmbeddedSignature(signature, pdfBytes, publicKey)) {
-            return VerifyDocumentResponse.tampered();
+            VerifyDocumentResponse response = VerifyDocumentResponse.tampered();
+            logVerification(record.getUser().getId(), response.status(), clientContext, record.getSignatureId());
+            return response;
         }
 
-        return VerifyDocumentResponse.valid(new VerifySignatureData(
+        VerifyDocumentResponse response = VerifyDocumentResponse.valid(new VerifySignatureData(
                 record.getSignatureId(),
                 record.getSignedAt(),
                 record.getUser().getEmail()
         ));
+        logVerification(record.getUser().getId(), response.status(), clientContext, record.getSignatureId());
+        return response;
+    }
+
+    private void logVerification(UUID userId, VerifyStatus status, ClientContext clientContext, UUID signatureId) {
+        String metadata = signatureId == null
+                ? "{\"status\":\"" + status + "\"}"
+                : "{\"status\":\"" + status + "\",\"signatureId\":\"" + signatureId + "\"}";
+        if (status == VerifyStatus.VALID) {
+            auditService.logSuccess(userId, AuditAction.DOC_VERIFIED, clientContext.ipAddress(), clientContext.userAgent(), metadata);
+        } else {
+            auditService.logFailure(userId, AuditAction.DOC_VERIFIED, clientContext.ipAddress(), clientContext.userAgent(), metadata);
+        }
     }
 
     private Optional<UUID> signatureId(PDSignature signature) {

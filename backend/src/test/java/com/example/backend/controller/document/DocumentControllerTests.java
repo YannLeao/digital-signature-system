@@ -4,6 +4,7 @@ import com.example.backend.domain.User;
 import com.example.backend.dto.document.SignDocumentRequest;
 import com.example.backend.dto.document.SignedPdfResult;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.service.audit.AuditService;
 import com.example.backend.service.document.PdfSigningService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,11 +33,13 @@ class DocumentControllerTests {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+    private final AuditService auditService = mock(AuditService.class);
     private final DocumentController controller = new DocumentController(
             pdfSigningService,
             userRepository,
             objectMapper,
-            validator
+            validator,
+            auditService
     );
 
     @Test
@@ -62,6 +65,7 @@ class DocumentControllerTests {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(servletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(servletRequest.getHeader("User-Agent")).thenReturn("JUnit/5");
         when(pdfSigningService.sign(eq(file), eq(request), eq(user), eq("127.0.0.1"), any(Instant.class)))
                 .thenReturn(result);
 
