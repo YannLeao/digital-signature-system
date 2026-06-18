@@ -1,42 +1,51 @@
-import { passwordRules } from '../../schemas/authSchemas'
+import {CheckCircle2, Circle} from 'lucide-react'
+import {passwordRules} from '../../schemas/authSchemas'
 
 type PasswordStrengthIndicatorProps = {
-  password: string
+    password: string
 }
 
 export function PasswordStrengthIndicator({
-  password,
-}: PasswordStrengthIndicatorProps) {
-  const rules = Object.values(passwordRules)
-  const metRules = rules.filter((rule) => rule.test(password)).length
+                                              password,
+                                          }: PasswordStrengthIndicatorProps) {
+    const rules = Object.values(passwordRules)
+    const metRules = rules.filter((rule) => rule.test(password)).length
 
-  return (
-    <div className="rounded-lg border border-[#374151] bg-[#111827] p-3">
-      <div className="mb-3 flex gap-1">
-        {rules.map((rule, index) => (
-          <span
-            aria-label={rule.label}
-            className={`h-1.5 flex-1 rounded-full ${
-              index < metRules ? 'bg-[#06B6D4]' : 'bg-[#374151]'
-            }`}
-            key={rule.label}
-          />
-        ))}
-      </div>
-      <ul className="grid gap-2 text-xs text-[#9CA3AF] sm:grid-cols-2">
-        {rules.map((rule) => {
-          const isMet = rule.test(password)
+    return (
+        <div className="rounded-lg border border-[#374151] bg-[#111827] p-3.5 space-y-3">
+            <div className="flex gap-1.5">
+                {rules.map((rule, index) => (
+                    <span
+                        aria-label={rule.label}
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                            index < metRules ? 'bg-[#06B6D4]' : 'bg-[#273142]'
+                        }`}
+                        key={rule.label}
+                    />
+                ))}
+            </div>
 
-          return (
-            <li
-              className={isMet ? 'text-[#06B6D4]' : 'text-[#9CA3AF]'}
-              key={rule.label}
-            >
-              {isMet ? 'Atendido' : 'Pendente'}: {rule.label}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
+            <ul className="grid gap-2 text-xs sm:grid-cols-2">
+                {rules.map((rule) => {
+                    const isMet = rule.test(password)
+
+                    return (
+                        <li
+                            className={`flex items-center gap-2 transition-colors ${
+                                isMet ? 'text-[#22D3EE] font-medium' : 'text-[#6B7280]'
+                            }`}
+                            key={rule.label}
+                        >
+                            {isMet ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-[#06B6D4] shrink-0" />
+                            ) : (
+                                <Circle className="h-3.5 w-3.5 text-[#374151] shrink-0" />
+                            )}
+                            <span>{rule.label}</span>
+                        </li>
+                    )
+                })}
+            </ul>
+        </div>
+    )
 }

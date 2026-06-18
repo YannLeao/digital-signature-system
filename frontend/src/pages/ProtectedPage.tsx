@@ -1,59 +1,61 @@
-import { Link } from 'react-router-dom'
-
-import { useAuth } from '../hooks/useAuth'
+import {useAuth} from '../hooks/useAuth'
+import {FileCheck, FileSignature, Fingerprint, KeySquare, ShieldAlert} from 'lucide-react'
+import {ModuleLink} from '../components/general/ModuleLink.tsx'
 
 export function ProtectedPage() {
   const { email } = useAuth()
 
   return (
-    <section className="space-y-8">
-      <p className="mb-3 text-sm font-medium uppercase text-[#06B6D4]">
-        Area autenticada
-      </p>
-      <h1 className="text-3xl font-semibold text-[#F9FAFB]">
-        Painel do assinador digital
-      </h1>
-      <p className="mt-4 text-base leading-7 text-[#9CA3AF]">
-        {email
-          ? `Sessao ativa para ${email}.`
-          : 'Sessao ativa.'}{' '}
-        Acesse os modulos implementados para a demonstracao.
-      </p>
-      <div className="grid gap-4 md:grid-cols-3">
-        <ModuleLink
-          description="Enviar PDF, posicionar selo e baixar documento assinado."
-          title="Assinar PDF"
-          to="/documents/sign"
-        />
-        <ModuleLink
-          description="Adicionar, listar e revogar credenciais WebAuthn."
-          title="Passkeys"
-          to="/security/passkeys"
-        />
-        <ModuleLink
-          description="Ativar TOTP, confirmar codigo e gerar backup codes."
-          title="2FA / TOTP"
-          to="/settings/2fa"
-        />
-      </div>
-    </section>
-  )
-}
+      <section className="space-y-8 animate-fade-in">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div>
+            <p className="mb-3 text-sm font-medium uppercase tracking-wider text-[#06B6D4]">
+              Painel
+            </p>
+            <h1 className="text-3xl font-semibold text-[#F9FAFB] sm:text-4xl tracking-tight">
+              Assinador Digital
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[#9CA3AF]">
+              {email ? `Conta: ${email}.` : 'Conta autenticada.'}
+            </p>
+          </div>
+        </div>
 
-type ModuleLinkProps = {
-  description: string
-  title: string
-  to: string
-}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ModuleLink
+              icon={FileSignature}
+              description="Upload, selo visual e download do documento assinado."
+              title="Assinar documento"
+              to="/documents/sign"
+          />
+          <ModuleLink
+              icon={FileCheck}
+              description="Conferir integridade e autenticidade de um PDF."
+              title="Verificar assinatura"
+              to="/verificar"
+          />
+        </div>
 
-function ModuleLink({ description, title, to }: ModuleLinkProps) {
-  return (
-    <Link
-      className="rounded-lg border border-[#374151] bg-[#111827] p-4 transition hover:border-[#06B6D4]"
-      to={to}
-    >
-      <h2 className="text-base font-semibold text-white">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">{description}</p>
-    </Link>
+        <div className="grid gap-4 md:grid-cols-3">
+          <ModuleLink
+              icon={ShieldAlert}
+              description="Sessões ativas, revogação e histórico da conta."
+              title="Segurança"
+              to="/settings/security"
+          />
+          <ModuleLink
+              icon={KeySquare}
+              description="Código temporário e backup codes."
+              title="2FA / TOTP"
+              to="/settings/2fa"
+          />
+          <ModuleLink
+              icon={Fingerprint}
+              description="Credenciais WebAuthn do dispositivo."
+              title="Passkeys"
+              to="/security/passkeys"
+          />
+        </div>
+      </section>
   )
 }
