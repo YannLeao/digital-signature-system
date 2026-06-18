@@ -8,6 +8,7 @@ import { ProtectedPage } from '../pages/ProtectedPage'
 import { SignDocumentPage } from '../pages/documents/SignDocumentPage'
 import { VerifyDocumentPage } from '../pages/public/VerifyDocumentPage'
 import { PasskeysPage } from '../pages/security/PasskeysPage'
+import { SecurityActivityPage } from '../pages/security/SecurityActivityPage'
 import { TotpVerifyPage } from '../pages/security/TotpVerifyPage'
 import { TwoFactorPage } from '../pages/security/TwoFactorPage'
 import { PrivateRoute } from './PrivateRoute'
@@ -25,7 +26,9 @@ export function AppRoutes() {
         <Route element={<PrivateRoute />}>
           <Route element={<ProtectedPage />} path="/app" />
           <Route element={<SignDocumentPage />} path="/documents/sign" />
+          <Route element={<SecurityActivityPage />} path="/security" />
           <Route element={<PasskeysPage />} path="/security/passkeys" />
+          <Route element={<SecurityActivityPage />} path="/settings/security" />
           <Route element={<TwoFactorPage />} path="/settings/2fa" />
         </Route>
         <Route element={<Navigate replace to="/" />} path="*" />

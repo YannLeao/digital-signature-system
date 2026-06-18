@@ -38,6 +38,12 @@ export function BaseLayout() {
                 </Link>
                 <Link
                   className="rounded-lg border border-[#374151] px-3 py-2 text-[#D1D5DB] transition hover:border-[#06B6D4] hover:text-[#F9FAFB]"
+                  to="/settings/security"
+                >
+                  Seguranca
+                </Link>
+                <Link
+                  className="rounded-lg border border-[#374151] px-3 py-2 text-[#D1D5DB] transition hover:border-[#06B6D4] hover:text-[#F9FAFB]"
                   to="/settings/2fa"
                 >
                   2FA
