@@ -7,17 +7,23 @@ import com.example.backend.repository.AuditLogRepository;
 import com.example.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 class AuditServiceTests {
 
@@ -62,5 +68,31 @@ class AuditServiceTests {
         assertThat(entry.getUser()).isNull();
         assertThat(entry.getResult()).isEqualTo("FAILURE");
         assertThat(entry.getMetadata()).isEqualTo("{}");
+    }
+
+    @Test
+    void listsAuditEntriesForUserAsResponses() {
+        UUID userId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        User user = User.register(userId, "user@example.com", "password-hash", NOW.minusSeconds(3600));
+        AuditLog entry = AuditLog.create(
+                UUID.fromString("33333333-3333-3333-3333-333333333333"),
+                user,
+                NOW,
+                "203.0.113.10",
+                "JUnit/5",
+                AuditAction.LOGIN,
+                "SUCCESS",
+                "{\"flow\":\"password\"}"
+        );
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(auditLogRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(entry), pageable, 1));
+
+        var page = service.listForUser(userId, AuditAction.LOGIN, "SUCCESS", null, null, pageable);
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().getFirst().id()).isEqualTo(entry.getId());
+        assertThat(page.getContent().getFirst().action()).isEqualTo("LOGIN");
+        assertThat(page.getContent().getFirst().metadata()).isEqualTo("{\"flow\":\"password\"}");
     }
 }

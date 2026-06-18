@@ -6,6 +6,8 @@ import com.example.backend.dto.auth.CsrfTokenResponse;
 import com.example.backend.dto.auth.LoginRequest;
 import com.example.backend.dto.auth.LoginResponse;
 import com.example.backend.dto.auth.LogoutResponse;
+import com.example.backend.dto.auth.ChangePasswordRequest;
+import com.example.backend.dto.auth.ChangePasswordResponse;
 import com.example.backend.dto.auth.RegisterUserRequest;
 import com.example.backend.dto.auth.RegisterUserResponse;
 import com.example.backend.dto.auth.TotpSetupResponse;
@@ -35,6 +37,7 @@ import com.example.backend.service.auth.RefreshTokenService;
 import com.example.backend.service.auth.TotpSetupService;
 import com.example.backend.service.auth.TotpVerifyService;
 import com.example.backend.service.auth.UserLoginService;
+import com.example.backend.service.auth.UserPasswordService;
 import com.example.backend.service.auth.UserRegistrationService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -73,6 +76,7 @@ public class AuthController {
     private final ActiveSessionService activeSessionService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final UserPasswordService userPasswordService;
 
     public AuthController(
             UserRegistrationService userRegistrationService,
@@ -89,7 +93,8 @@ public class AuthController {
             AuditService auditService,
             ActiveSessionService activeSessionService,
             ApplicationEventPublisher eventPublisher,
-            UserRepository userRepository
+            UserRepository userRepository,
+            UserPasswordService userPasswordService
     ) {
         this.userRegistrationService = userRegistrationService;
         this.userLoginService = userLoginService;
@@ -106,6 +111,7 @@ public class AuthController {
         this.activeSessionService = activeSessionService;
         this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
+        this.userPasswordService = userPasswordService;
     }
 
     @PostMapping("/register")
@@ -253,6 +259,29 @@ public class AuthController {
                         csrfTokenService.clearCookie().toString()
                 )
                 .body(new LogoutResponse("Logout realizado com sucesso."));
+    }
+
+    @PostMapping("/password")
+    ResponseEntity<ChangePasswordResponse> changePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        if (jwt == null) {
+            throw new InvalidAccessTokenException();
+        }
+
+        UUID userId = UUID.fromString(jwt.getSubject());
+        UUID currentSessionId = UUID.fromString(jwt.getClaimAsString("session_id"));
+        userPasswordService.changePassword(
+                userId,
+                currentSessionId,
+                request.currentPassword(),
+                request.newPassword(),
+                clientContext(servletRequest)
+        );
+
+        return ResponseEntity.ok(new ChangePasswordResponse("Senha alterada com sucesso."));
     }
 
     private ClientContext clientContext(HttpServletRequest request) {

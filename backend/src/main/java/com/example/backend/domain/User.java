@@ -169,4 +169,11 @@ public class User {
 		lockedUntil = null;
 		updatedAt = now;
 	}
+
+	public void changePassword(String passwordHash, Instant now) {
+		this.passwordHash = passwordHash;
+		this.failedAttempts = 0;
+		this.lockedUntil = null;
+		this.updatedAt = now;
+	}
 }

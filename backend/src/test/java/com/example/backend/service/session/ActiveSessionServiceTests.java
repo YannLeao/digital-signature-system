@@ -121,6 +121,23 @@ class ActiveSessionServiceTests {
         verify(auditService).logSuccess(user.getId(), AuditAction.LOGOUT, CLIENT.ipAddress(), CLIENT.userAgent());
     }
 
+    @Test
+    void revokeOtherSessionsKeepsCurrentSessionActive() {
+        User user = user();
+        ActiveSession current = ActiveSession.create(UUID.randomUUID(), user, "203.0.113.10", "A", NOW.minusSeconds(60));
+        ActiveSession other = ActiveSession.create(UUID.randomUUID(), user, "203.0.113.20", "B", NOW.minusSeconds(30));
+        when(activeSessionRepository.findByUserIdAndIsActiveTrue(user.getId())).thenReturn(List.of(current, other));
+
+        service.revokeOtherSessions(user.getId(), current.getSessionId(), CLIENT);
+
+        assertThat(current.isActive()).isTrue();
+        assertThat(other.isActive()).isFalse();
+        verify(refreshTokenService, never()).revokeSession(current.getSessionId());
+        verify(refreshTokenService).revokeSession(other.getSessionId());
+        verify(activeSessionRepository).saveAll(List.of(other));
+        verify(auditService, never()).logSuccess(user.getId(), AuditAction.LOGOUT, CLIENT.ipAddress(), CLIENT.userAgent());
+    }
+
     private User user() {
         return User.register(
                 UUID.fromString("11111111-1111-1111-1111-111111111111"),
