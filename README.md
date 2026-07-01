@@ -63,7 +63,53 @@ O projeto cumpre rigorosamente as melhores práticas recomendadas pelo **OWASP**
 
 ```
 
-## Como Executar Localmente
+## Como Executar via Docker
+
+Esta é a forma recomendada para avaliação do projeto, pois sobe o **PostgreSQL**, o **backend Spring Boot** e o
+**frontend React** com um único comando.
+
+### Pré-requisitos
+
+* **Git**
+* **Docker Desktop** ou **Docker Engine**
+* **Docker Compose v2**
+
+### 1. Clonando o Repositório
+
+```bash
+git clone <https://github.com/oVictorTorres/Projeto-3-Seguranca>
+cd Projeto-3-Seguranca
+```
+
+### 2. Subindo a Aplicação
+
+```bash
+docker compose up --build
+```
+
+Na primeira execução, o Docker baixa as imagens base, compila o backend, compila o frontend e cria o banco PostgreSQL.
+As migrations do **Flyway** criam as tabelas automaticamente no startup do backend.
+
+* **Frontend:** `http://localhost:5173`
+* **API:** `http://localhost:8080/api/v1`
+* **Health Check:** `http://localhost:8080/api/v1/health`
+
+### 3. Parando e Limpando o Ambiente
+
+Para parar os containers:
+
+```bash
+docker compose down
+```
+
+Para apagar também os dados do banco e reiniciar do zero:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+## Como Executar Localmente sem Docker
 
 ### Pré-requisitos
 
